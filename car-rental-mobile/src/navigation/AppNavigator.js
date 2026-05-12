@@ -17,6 +17,11 @@ import RegisterScreen from "../screens/auth/RegisterScreen";
 import HomeScreen from "../screens/home/HomeScreen";
 import SearchScreen from "../screens/home/SearchScreen";
 
+// ── Payment Screens ──
+import PaymentMethodScreen from "../screens/payment/PaymentMethodScreen";
+import PaymentConfirmationScreen from "../screens/payment/PaymentConfirmationScreen";
+import PaymentStatesScreen from "../screens/payment/PaymentStatesScreen";
+
 // ── Icons ──
 import {
   HomeIcon,
@@ -109,6 +114,15 @@ const AppNavigator = () => (
       <Stack.Screen name="Payment" component={Placeholder} />
       <Stack.Screen name="ChatConversation" component={Placeholder} />
       <Stack.Screen name="EditProfile" component={Placeholder} />
+
+      {/* Payment Flow */}
+      <Stack.Screen name="Payment" component={PaymentMethodScreen} />
+      <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
+      <Stack.Screen
+        name="PaymentConfirmation"
+        component={PaymentConfirmationScreen}
+      />
+      <Stack.Screen name="PaymentStates" component={PaymentStatesScreen} />
     </Stack.Navigator>
   </NavigationContainer>
 );

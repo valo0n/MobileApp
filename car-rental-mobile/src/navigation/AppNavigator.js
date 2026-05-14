@@ -16,11 +16,10 @@ import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import HomeScreen from "../screens/home/HomeScreen";
 import SearchScreen from "../screens/home/SearchScreen";
-
-// ── Payment Screens ──
-import PaymentMethodScreen from "../screens/payment/PaymentMethodScreen";
-import PaymentConfirmationScreen from "../screens/payment/PaymentConfirmationScreen";
-import PaymentStatesScreen from "../screens/payment/PaymentStatesScreen";
+import FiltersScreen from "../screens/home/FiltersScreen";
+import CarDetailScreen from "../screens/cars/CarDetailScreen";
+import ReviewsScreen from "../screens/cars/ReviewsScreen";
+import BookingScreen from "../screens/bookings/BookingScreen";
 
 // ── Icons ──
 import {
@@ -108,21 +107,18 @@ const AppNavigator = () => (
       {/* Main App */}
       <Stack.Screen name="MainTabs" component={MainTabs} />
 
-      {/* Detail Screens */}
-      <Stack.Screen name="CarDetail" component={Placeholder} />
-      <Stack.Screen name="Booking" component={Placeholder} />
+      {/* Modal / Detail Screens */}
+      <Stack.Screen
+        name="Filters"
+        component={FiltersScreen}
+        options={{ presentation: "modal", animation: "slide_from_bottom" }}
+      />
+      <Stack.Screen name="CarDetail" component={CarDetailScreen} />
+      <Stack.Screen name="Reviews" component={ReviewsScreen} />
+      <Stack.Screen name="Booking" component={BookingScreen} />
       <Stack.Screen name="Payment" component={Placeholder} />
       <Stack.Screen name="ChatConversation" component={Placeholder} />
       <Stack.Screen name="EditProfile" component={Placeholder} />
-
-      {/* Payment Flow */}
-      <Stack.Screen name="Payment" component={PaymentMethodScreen} />
-      <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
-      <Stack.Screen
-        name="PaymentConfirmation"
-        component={PaymentConfirmationScreen}
-      />
-      <Stack.Screen name="PaymentStates" component={PaymentStatesScreen} />
     </Stack.Navigator>
   </NavigationContainer>
 );

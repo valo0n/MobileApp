@@ -14,19 +14,13 @@ import WelcomeScreen from "../screens/auth/WelcomeScreen";
 import Welcome2Screen from "../screens/auth/Welcome2Screen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
-
 import HomeScreen from "../screens/home/HomeScreen";
 import SearchScreen from "../screens/home/SearchScreen";
 import FiltersScreen from "../screens/home/FiltersScreen";
-
 import CarDetailScreen from "../screens/cars/CarDetailScreen";
 import ReviewsScreen from "../screens/cars/ReviewsScreen";
-
 import BookingScreen from "../screens/bookings/BookingScreen";
-
-import InboxScreen from "../screens/inbox/InboxScreen";
-import ChatScreen from "../screens/inbox/ChatScreen";
-import NotificationsScreen from "../screens/notifications/NotificationsScreen";
+import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 
 // ── Icons ──
 import {
@@ -54,7 +48,6 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
       <View style={styles.tabBar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
-
           const onPress = () => {
             if (!isFocused) navigation.navigate(route.name);
           };
@@ -93,10 +86,8 @@ const MainTabs = () => (
   >
     <Tab.Screen name="Home" component={HomeScreen} />
     <Tab.Screen name="Search" component={SearchScreen} />
-
-    <Tab.Screen name="Inbox" component={InboxScreen} />
-    <Tab.Screen name="Notifications" component={NotificationsScreen} />
-
+    <Tab.Screen name="Inbox" component={Placeholder} />
+    <Tab.Screen name="Notifications" component={Placeholder} />
     <Tab.Screen name="Profile" component={Placeholder} />
   </Tab.Navigator>
 );
@@ -114,8 +105,11 @@ const AppNavigator = () => (
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
 
-      {/* Main App */}
+      {/* Main App (customer / car owner) */}
       <Stack.Screen name="MainTabs" component={MainTabs} />
+
+      {/* Admin */}
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
 
       {/* Modal / Detail Screens */}
       <Stack.Screen
@@ -123,14 +117,11 @@ const AppNavigator = () => (
         component={FiltersScreen}
         options={{ presentation: "modal", animation: "slide_from_bottom" }}
       />
-
       <Stack.Screen name="CarDetail" component={CarDetailScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Booking" component={BookingScreen} />
-
-      <Stack.Screen name="ChatConversation" component={ChatScreen} />
-
       <Stack.Screen name="Payment" component={Placeholder} />
+      <Stack.Screen name="ChatConversation" component={Placeholder} />
       <Stack.Screen name="EditProfile" component={Placeholder} />
     </Stack.Navigator>
   </NavigationContainer>

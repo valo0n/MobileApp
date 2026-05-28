@@ -29,8 +29,18 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
     try {
-      await login({ email, password });
-      navigation.replace("MainTabs");
+      const result = await login({ email, password });
+
+      // Kontrollo role-in — nese osht admin, cojm te dashboard
+      const user = result?.user;
+      const roles = user?.roles || "";
+      const isAdmin = roles.includes("admin");
+
+      if (isAdmin) {
+        navigation.replace("AdminDashboard");
+      } else {
+        navigation.replace("MainTabs");
+      }
     } catch (err) {
       Alert.alert("Login Failed", err.message || "Invalid credentials");
     }

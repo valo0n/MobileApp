@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,440 +7,627 @@ import {
   StatusBar,
   SafeAreaView,
   ScrollView,
-} from 'react-native';
+  Modal,
+  ActivityIndicator,
+} from "react-native";
+import Svg, { Path, Circle } from "react-native-svg";
+import { BackIcon, MoreIcon } from "../../components/common/Icons";
+import { NotificationService } from "../../services";
 
-const notifications = [
+// ── Icons per cdo lloj notification ──
+const CheckBadge = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2L14.5 4.5L18 4L18.5 7.5L21.5 9L20 12L21.5 15L18.5 16.5L18 20L14.5 19.5L12 22L9.5 19.5L6 20L5.5 16.5L2.5 15L4 12L2.5 9L5.5 7.5L6 4L9.5 4.5L12 2Z"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M8.5 12L11 14.5L15.5 10"
+      stroke={color}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+const ReceiptIcon = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M6 2H18C18.5 2 19 2.5 19 3V22L16 20L13 22L10 20L7 22L5 20V3C5 2.5 5.5 2 6 2Z"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M9 7H15M9 11H15M9 15H12"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+const ClockBadge = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Circle
+      cx="12"
+      cy="12"
+      r="9"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeDasharray="2 2"
+    />
+    <Path
+      d="M12 7V12L15 14"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+const WarnBadge = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2L14.5 4.5L18 4L18.5 7.5L21.5 9L20 12L21.5 15L18.5 16.5L18 20L14.5 19.5L12 22L9.5 19.5L6 20L5.5 16.5L2.5 15L4 12L2.5 9L5.5 7.5L6 4L9.5 4.5L12 2Z"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M12 8V13M12 16V16.5"
+      stroke={color}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+const CancelBadge = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M7 3H14L19 8V21H7C6 21 5 20 5 19V5C5 4 6 3 7 3Z"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M10 12L15 17M15 12L10 17"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+const DiscountBadge = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2L14.5 4.5L18 4L18.5 7.5L21.5 9L20 12L21.5 15L18.5 16.5L18 20L14.5 19.5L12 22L9.5 19.5L6 20L5.5 16.5L2.5 15L4 12L2.5 9L5.5 7.5L6 4L9.5 4.5L12 2Z"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M9 15L15 9M9.5 9.5H9.51M14.5 14.5H14.51"
+      stroke={color}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+const TrashIcon = ({ color = "#111" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 6H21M19 6V20C19 21 18 22 17 22H7C6 22 5 21 5 20V6M8 6V4C8 3 9 2 10 2H14C15 2 16 3 16 4V6"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+const CloseIcon = ({ color = "#111" }) => (
+  <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M18 6L6 18M6 6L18 18"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+const AlertCircle = () => (
+  <Svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 9V13M12 17V17.01"
+      stroke="#fff"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+// Zgjedh icon-in sipas tipit te notification
+const getIcon = (type) => {
+  switch (type) {
+    case "booking":
+      return CheckBadge;
+    case "payment":
+      return ReceiptIcon;
+    case "reminder":
+      return ClockBadge;
+    case "promo":
+      return DiscountBadge;
+    default:
+      return WarnBadge;
+  }
+};
+
+// Mock data — perdoret nese backend-i nuk kthen asgje
+const MOCK = [
   {
     id: 1,
-    section: 'Today',
-    title: 'Car Booking Successful',
-    message: 'Your car is ready! Check your email for the booking and pickup instructions. Safe travels!',
-    time: '10:00 am',
-    unread: true,
-    icon: '✿',
+    type: "booking",
+    title: "Car Booking Successful",
+    body: "Your car is ready! Check your email for the booking and pickup instructions. Safe travels!",
+    time: "10:00 am",
+    is_read: false,
+    group: "Today",
   },
   {
     id: 2,
-    section: 'Today',
-    title: 'Payment Notification',
-    message: 'Your payment was processed successfully! Enjoy your ride.',
-    time: '10:00 am',
-    unread: true,
-    icon: '▣',
+    type: "payment",
+    title: "Payment Notification",
+    body: "Your payment was processed successfully! Enjoy your ride.",
+    time: "10:00 am",
+    is_read: false,
+    group: "Today",
   },
   {
     id: 3,
-    section: 'Today',
-    title: 'Car Pickup/Drop-off time',
-    message: 'Pickup time confirmed! See you at [Time] for your car rental. Drop-off Time Confirmed! Please',
-    time: '09:00 am',
-    icon: '◌',
+    type: "reminder",
+    title: "Car Pickup/Drop-off time",
+    body: "Pickup time confirmed! See you at [Time] for your car rental. Drop-off Time Confirmed! Please",
+    time: "09:00 am",
+    is_read: true,
+    group: "Today",
   },
   {
     id: 4,
-    section: 'Previous',
-    title: 'Late Return Warning',
-    message: 'Late Return Alert! Please return the car as soon as possible to avoid extra charges.',
-    time: 'Yesterday',
-    icon: '✿',
+    type: "system",
+    title: "Late Return Warning",
+    body: "Late Return Alert! Please return the car as soon as possible to avoid extra charges.",
+    time: "Yesterday",
+    is_read: true,
+    group: "Previous",
   },
   {
     id: 5,
-    section: 'Previous',
-    title: 'Cancellation Notice',
-    message: 'Your Reservation Has Been Canceled or Booking Cancelled Successfully.',
-    time: 'Yesterday',
-    icon: '▢',
+    type: "system",
+    title: "Cancellation Notice",
+    body: "Your Reservation Has Been Canceled or Booking Cancelled Successfully.",
+    time: "Yesterday",
+    is_read: true,
+    group: "Previous",
   },
   {
     id: 6,
-    section: 'Previous',
-    title: 'Discount Notification',
-    message: 'Congratulations! You’ve unlocked a 10% discount on your next rental.',
-    time: 'Yesterday',
-    icon: '✧',
+    type: "promo",
+    title: "Discount Notification",
+    body: "Congratulations! You've unlocked a 10% discount on your next rental.",
+    time: "Yesterday",
+    is_read: true,
+    group: "Previous",
   },
 ];
 
 const NotificationsScreen = ({ navigation }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
-  const [selected, setSelected] = useState([2, 4, 5]);
+  const [selected, setSelected] = useState({});
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const toggleSelect = (id) => {
-    if (!selectMode) return;
+  useEffect(() => {
+    loadNotifications();
+  }, []);
 
-    if (selected.includes(id)) {
-      setSelected(selected.filter((item) => item !== id));
-    } else {
-      setSelected([...selected, id]);
+  const loadNotifications = async () => {
+    setLoading(true);
+    try {
+      const res = await NotificationService.getAll();
+      const data = res.data || [];
+      if (data.length > 0) {
+        // Grupoji ne Today / Previous sipas dates
+        const today = new Date().toDateString();
+        const mapped = data.map((n) => ({
+          ...n,
+          group:
+            new Date(n.created_at).toDateString() === today
+              ? "Today"
+              : "Previous",
+          time: new Date(n.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }));
+        setNotifications(mapped);
+      } else {
+        setNotifications(MOCK);
+      }
+    } catch (e) {
+      // Nese backend nuk pergjigjet, perdor mock
+      setNotifications(MOCK);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const todayNotifications = notifications.filter((item) => item.section === 'Today');
-  const previousNotifications = notifications.filter((item) => item.section === 'Previous');
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const todayList = notifications.filter((n) => n.group === "Today");
+  const previousList = notifications.filter((n) => n.group === "Previous");
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+  const allSelected =
+    selectedCount === notifications.length && notifications.length > 0;
+
+  const toggleSelect = (id) => {
+    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelected({});
+    } else {
+      const all = {};
+      notifications.forEach((n) => {
+        all[n.id] = true;
+      });
+      setSelected(all);
+    }
+  };
+
+  const enterSelectMode = (id) => {
+    setSelectMode(true);
+    setSelected({ [id]: true });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected({});
+  };
+
+  const confirmDelete = async () => {
+    const idsToDelete = Object.keys(selected).filter((id) => selected[id]);
+    // Fshij nga UI
+    setNotifications((prev) =>
+      prev.filter((n) => !idsToDelete.includes(String(n.id))),
+    );
+    setModalVisible(false);
+    exitSelectMode();
+    // TODO: thirr backend delete per cdo id kur te kete endpoint
+  };
+
+  const renderNotification = (n) => {
+    const Icon = getIcon(n.type);
+    const isSelected = !!selected[n.id];
+    return (
+      <TouchableOpacity
+        key={n.id}
+        style={styles.notifCard}
+        activeOpacity={0.7}
+        onLongPress={() => enterSelectMode(n.id)}
+        onPress={() => selectMode && toggleSelect(n.id)}
+      >
+        {selectMode && (
+          <View
+            style={[styles.checkCircle, isSelected && styles.checkCircleActive]}
+          >
+            {isSelected && <Text style={styles.checkMark}>✓</Text>}
+          </View>
+        )}
+        <View style={styles.notifIcon}>
+          <Icon color="#111" />
+        </View>
+        <View style={styles.notifContent}>
+          <View style={styles.notifTop}>
+            <Text style={styles.notifTitle}>{n.title}</Text>
+            <View style={styles.notifTimeRow}>
+              <Text style={styles.notifTime}>{n.time}</Text>
+              {!n.is_read && <View style={styles.unreadDot} />}
+            </View>
+          </View>
+          <Text style={styles.notifBody} numberOfLines={2}>
+            {n.body}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#E9E6E6" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.page}>
-        <View style={styles.phoneCard}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.circleButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backText}>‹</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.headerTitle}>Notification</Text>
-
+      {/* Header */}
+      <View style={styles.header}>
+        {selectMode ? (
+          <>
             <TouchableOpacity
-              style={styles.circleButton}
-              onPress={() => setSelectMode(!selectMode)}
+              style={styles.selectAllRow}
+              onPress={toggleSelectAll}
             >
-              <Text style={styles.moreText}>•••</Text>
-            </TouchableOpacity>
-          </View>
-
-          {selectMode && (
-            <View style={styles.selectBar}>
-              <View style={styles.selectLeft}>
-                <TouchableOpacity style={styles.emptyCircle} />
-                <Text style={styles.allText}>All</Text>
-                <Text style={styles.selectedText}>{selected.length} Selected</Text>
+              <View
+                style={[
+                  styles.checkCircle,
+                  allSelected && styles.checkCircleActive,
+                ]}
+              >
+                {allSelected && <Text style={styles.checkMark}>✓</Text>}
               </View>
+              <Text style={styles.selectAllText}>All</Text>
+              <Text style={styles.selectedCount}>{selectedCount} Selected</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => selectedCount > 0 && setModalVisible(true)}
+            >
+              <TrashIcon color="#111" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <BackIcon size={20} color="#111" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Notification</Text>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => notifications.length > 0 && setSelectMode(true)}
+            >
+              <MoreIcon size={20} color="#111" />
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
 
-              <TouchableOpacity style={styles.deleteButton}>
-                <Text style={styles.deleteIcon}>♲</Text>
-              </TouchableOpacity>
-            </View>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#111" />
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
+          {/* Today */}
+          {todayList.length > 0 && (
+            <>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Today</Text>
+                {!selectMode && (
+                  <Text style={styles.unreadText}>
+                    {unreadCount} Unread Notification
+                  </Text>
+                )}
+              </View>
+              {todayList.map(renderNotification)}
+            </>
           )}
 
-          {/* Today */}
-          <SectionHeader
-            title="Today"
-            rightText={!selectMode ? '2 Unread Notification' : null}
-          />
-
-          {todayNotifications.map((item) => (
-            <NotificationRow
-              key={item.id}
-              item={item}
-              selectMode={selectMode}
-              selected={selected.includes(item.id)}
-              onPress={() => toggleSelect(item.id)}
-            />
-          ))}
-
           {/* Previous */}
-          <SectionHeader title="Previous" />
+          {previousList.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
+                Previous
+              </Text>
+              {previousList.map(renderNotification)}
+            </>
+          )}
 
-          {previousNotifications.map((item) => (
-            <NotificationRow
-              key={item.id}
-              item={item}
-              selectMode={selectMode}
-              selected={selected.includes(item.id)}
-              onPress={() => toggleSelect(item.id)}
-            />
-          ))}
+          {notifications.length === 0 && (
+            <Text style={styles.emptyText}>S'ka notifikime</Text>
+          )}
+        </ScrollView>
+      )}
 
-          <View style={{ flex: 1 }} />
-
-          {/* Bottom nav */}
-          <View style={styles.bottomNav}>
-            <TouchableOpacity style={styles.navItem}>
-              <Text style={styles.navIcon}>⌂</Text>
+      {/* Delete confirmation modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={() => setModalVisible(false)}
+            >
+              <CloseIcon color="#111" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.navItem}>
-              <Text style={styles.navIcon}>⌕</Text>
-            </TouchableOpacity>
+            <View style={styles.alertIcon}>
+              <AlertCircle />
+            </View>
 
-            <TouchableOpacity style={styles.navItem}>
-              <Text style={styles.navIcon}>✉</Text>
-            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              Are you sure you want to delete your notifications permanently?
+            </Text>
+            <Text style={styles.modalDesc}>
+              By doing this, your notifications will be deleted permanently and
+              you will not be able to recover your notifications anymore.
+            </Text>
 
-            <TouchableOpacity style={styles.navItemActive}>
-              <Text style={styles.navIconActive}>♧</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.navItem}>
-              <Text style={styles.navIcon}>♙</Text>
-            </TouchableOpacity>
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.deleteBtnText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </ScrollView>
+      </Modal>
     </SafeAreaView>
   );
 };
 
-const SectionHeader = ({ title, rightText }) => (
-  <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>{title}</Text>
-    {rightText && <Text style={styles.sectionRight}>{rightText}</Text>}
-  </View>
-);
-
-const NotificationRow = ({ item, selectMode, selected, onPress }) => (
-  <TouchableOpacity
-    activeOpacity={0.8}
-    style={[styles.notificationRow, selectMode && selected && styles.selectedRow]}
-    onPress={onPress}
-  >
-    {selectMode && (
-      <View style={[styles.checkCircle, selected && styles.checkCircleActive]}>
-        {selected && <Text style={styles.checkText}>✓</Text>}
-      </View>
-    )}
-
-    <View style={styles.iconCircle}>
-      <Text style={styles.notificationIcon}>{item.icon}</Text>
-    </View>
-
-    <View style={styles.notificationContent}>
-      <View style={styles.notificationTop}>
-        <Text style={styles.notificationTitle}>{item.title}</Text>
-
-        <View style={styles.timeBox}>
-          <Text style={styles.timeText}>{item.time}</Text>
-          {item.unread && <View style={styles.blueDot} />}
-        </View>
-      </View>
-
-      <Text numberOfLines={2} style={styles.notificationMessage}>
-        {item.message}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#E9E6E6',
-  },
-  page: {
-    paddingHorizontal: 14,
-    paddingBottom: 24,
-  },
-  phoneCard: {
-    backgroundColor: '#F9F9F9',
-    borderRadius: 26,
-    overflow: 'hidden',
-    paddingBottom: 18,
-    minHeight: 720,
-  },
-
+  container: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
-    height: 72,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
+    borderBottomColor: "#EEE",
   },
-  circleButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  backText: {
-    fontSize: 28,
-    color: '#1C2526',
-    marginTop: -3,
-  },
-  moreText: {
-    fontSize: 15,
-    color: '#1C2526',
-    letterSpacing: -2,
-  },
-  headerTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111',
-  },
-
-  selectBar: {
-    height: 54,
-    paddingHorizontal: 18,
-    backgroundColor: '#F9F9F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  emptyCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#D7D7D7',
-    marginRight: 10,
-  },
-  allText: {
-    fontSize: 10,
-    color: '#111',
-    marginRight: 12,
-  },
-  selectedText: {
-    fontSize: 10,
-    color: '#111',
-    fontWeight: '600',
-  },
-  deleteButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteIcon: {
-    fontSize: 16,
-    color: '#1F2A2B',
-  },
-
-  sectionHeader: {
-    paddingHorizontal: 18,
-    paddingTop: 18,
+  headerTitle: { fontSize: 17, fontWeight: "700", color: "#111" },
+  selectAllRow: { flexDirection: "row", alignItems: "center", flex: 1 },
+  selectAllText: { fontSize: 14, color: "#111", marginRight: 14 },
+  selectedCount: { fontSize: 14, fontWeight: "700", color: "#111" },
+  loadingWrap: { flex: 1, justifyContent: "center", alignItems: "center" },
+  sectionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#111',
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111",
+    paddingHorizontal: 20,
   },
-  sectionRight: {
-    fontSize: 10,
-    color: '#111',
-  },
-
-  notificationRow: {
-    minHeight: 72,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectedRow: {
-    backgroundColor: '#ECECEC',
+  unreadText: { fontSize: 12, color: "#9CA3AF" },
+  notifCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    marginHorizontal: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    marginBottom: 8,
   },
   checkCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#DADADA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  checkCircleActive: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  checkText: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    fontWeight: '900',
-  },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E6E6E6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
-  notificationIcon: {
-    fontSize: 15,
-    color: '#1F2A2B',
+  checkCircleActive: { backgroundColor: "#111", borderColor: "#111" },
+  checkMark: { color: "#fff", fontSize: 12, fontWeight: "bold" },
+  notifIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
-  notificationContent: {
+  notifContent: { flex: 1 },
+  notifTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  notifTitle: { fontSize: 14, fontWeight: "700", color: "#111", flex: 1 },
+  notifTimeRow: { flexDirection: "row", alignItems: "center" },
+  notifTime: { fontSize: 11, color: "#9CA3AF" },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#3B82F6",
+    marginLeft: 6,
+  },
+  notifBody: { fontSize: 12, color: "#9CA3AF", lineHeight: 18, marginTop: 4 },
+  emptyText: { textAlign: "center", color: "#9CA3AF", marginTop: 40 },
+
+  // Modal
+  modalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
   },
-  notificationTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
   },
-  notificationTitle: {
+  modalClose: { position: "absolute", top: 16, right: 16, zIndex: 2 },
+  alertIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  modalDesc: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalBtnRow: { flexDirection: "row", justifyContent: "space-between" },
+  deleteBtn: {
     flex: 1,
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#111',
+    paddingVertical: 14,
+    borderRadius: 30,
+    backgroundColor: "#F0F0F0",
+    alignItems: "center",
     marginRight: 8,
   },
-  timeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  deleteBtnText: { color: "#111", fontSize: 15, fontWeight: "700" },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 30,
+    backgroundColor: "#2D2D2D",
+    alignItems: "center",
+    marginLeft: 8,
   },
-  timeText: {
-    fontSize: 8,
-    color: '#9A9A9A',
-  },
-  blueDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#2F80ED',
-    marginLeft: 7,
-  },
-  notificationMessage: {
-    fontSize: 9,
-    color: '#8A8A8A',
-    lineHeight: 13,
-    marginTop: 4,
-  },
-
-  bottomNav: {
-    height: 58,
-    marginHorizontal: 18,
-    marginTop: 18,
-    backgroundColor: '#1F2A2B',
-    borderRadius: 29,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-  },
-  navItem: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  navItemActive: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#2A3637',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  navIcon: {
-    fontSize: 18,
-    color: '#8E999A',
-  },
-  navIconActive: {
-    fontSize: 18,
-    color: '#FFFFFF',
-  },
+  cancelBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
 
 export default NotificationsScreen;

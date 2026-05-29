@@ -20,7 +20,10 @@ import FiltersScreen from "../screens/home/FiltersScreen";
 import CarDetailScreen from "../screens/cars/CarDetailScreen";
 import ReviewsScreen from "../screens/cars/ReviewsScreen";
 import BookingScreen from "../screens/bookings/BookingScreen";
+import PaymentScreen from "../screens/bookings/PaymentScreen";
+import PaymentSuccessScreen from "../screens/bookings/PaymentSuccessScreen";
 import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
+import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 
 // ── Icons ──
 import {
@@ -87,7 +90,7 @@ const MainTabs = () => (
     <Tab.Screen name="Home" component={HomeScreen} />
     <Tab.Screen name="Search" component={SearchScreen} />
     <Tab.Screen name="Inbox" component={Placeholder} />
-    <Tab.Screen name="Notifications" component={Placeholder} />
+    <Tab.Screen name="Notifications" component={NotificationsScreen} />
     <Tab.Screen name="Profile" component={Placeholder} />
   </Tab.Navigator>
 );
@@ -120,7 +123,13 @@ const AppNavigator = () => (
       <Stack.Screen name="CarDetail" component={CarDetailScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
       <Stack.Screen name="Booking" component={BookingScreen} />
-      <Stack.Screen name="Payment" component={Placeholder} />
+      <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+      <Stack.Screen name="MyBookings" component={Placeholder} />
+      <Stack.Screen
+        name="NotificationsDetail"
+        component={NotificationsScreen}
+      />
       <Stack.Screen name="ChatConversation" component={Placeholder} />
       <Stack.Screen name="EditProfile" component={Placeholder} />
     </Stack.Navigator>

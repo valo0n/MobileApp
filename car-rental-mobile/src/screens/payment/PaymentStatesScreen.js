@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -7,18 +7,24 @@ import {
   StatusBar,
   SafeAreaView,
   ScrollView,
-} from 'react-native';
+} from "react-native";
 
 const PaymentStatesScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#E9E6E6" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.page}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.page}
+      >
         <View style={styles.phoneCard}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.circleButton} onPress={() => navigation.goBack()}>
+            <TouchableOpacity
+              style={styles.circleButton}
+              onPress={() => navigation.goBack()}
+            >
               <Text style={styles.backText}>‹</Text>
             </TouchableOpacity>
 
@@ -70,11 +76,7 @@ const PaymentStatesScreen = ({ navigation }) => {
 
             <DetailRow label="Transaction ID" value="#TD0012380J1" />
             <DetailRow label="Transaction Date" value="01Jan2024 - 10:30 am" />
-            <DetailRow
-              label="Payment Method"
-              value="123 **** ****225"
-              card
-            />
+            <DetailRow label="Payment Method" value="123 **** ****225" card />
 
             <View style={styles.dashedDivider} />
 
@@ -103,7 +105,7 @@ const PaymentStatesScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.homeButton}
-            onPress={() => navigation.navigate('Home')}
+            onPress={() => navigation.navigate("Home")}
           >
             <Text style={styles.homeText}>Back to Home</Text>
           </TouchableOpacity>
@@ -131,7 +133,9 @@ const DetailRow = ({ label, value, card, dark }) => (
           <View style={[styles.cardCircle, styles.orangeCircle]} />
         </View>
       )}
-      <Text style={[styles.detailValue, dark && styles.detailValueDark]}>{value}</Text>
+      <Text style={[styles.detailValue, dark && styles.detailValueDark]}>
+        {value}
+      </Text>
     </View>
   </View>
 );
@@ -139,83 +143,83 @@ const DetailRow = ({ label, value, card, dark }) => (
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#E9E6E6',
+    backgroundColor: "#E9E6E6",
   },
   page: {
     paddingHorizontal: 14,
     paddingBottom: 24,
   },
   phoneCard: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: "#F9F9F9",
     borderRadius: 26,
-    overflow: 'hidden',
+    overflow: "hidden",
     paddingBottom: 20,
   },
 
   header: {
     height: 72,
     paddingHorizontal: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E4E4',
+    borderBottomColor: "#E4E4E4",
   },
   circleButton: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
   },
   backText: {
     fontSize: 28,
-    color: '#1C2526',
+    color: "#1C2526",
     marginTop: -3,
   },
   moreText: {
     fontSize: 15,
-    color: '#1C2526',
+    color: "#1C2526",
     letterSpacing: -2,
   },
   headerTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#111',
+    fontWeight: "800",
+    color: "#111",
   },
 
   successSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 26,
     paddingBottom: 20,
   },
   successIconWrapper: {
     width: 110,
     height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
   },
   successCircle: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#29C768',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#29C768",
+    justifyContent: "center",
+    alignItems: "center",
   },
   checkIcon: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 34,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#29C768',
-    position: 'absolute',
+    backgroundColor: "#29C768",
+    position: "absolute",
   },
   dot1: {
     top: 5,
@@ -242,71 +246,71 @@ const styles = StyleSheet.create({
     right: 44,
   },
   confetti: {
-    position: 'absolute',
-    color: '#29C768',
+    position: "absolute",
+    color: "#29C768",
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   confetti1: {
     top: 8,
     right: 18,
-    transform: [{ rotate: '20deg' }],
+    transform: [{ rotate: "20deg" }],
   },
   confetti2: {
     bottom: 14,
     left: 8,
-    transform: [{ rotate: '-25deg' }],
+    transform: [{ rotate: "-25deg" }],
   },
   confetti3: {
     top: 4,
     left: 24,
-    transform: [{ rotate: '-35deg' }],
+    transform: [{ rotate: "-35deg" }],
   },
   successTitle: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#111',
+    fontWeight: "800",
+    color: "#111",
     marginTop: 2,
   },
   successSubtitle: {
     fontSize: 10,
-    color: '#9A9A9A',
+    color: "#9A9A9A",
     marginTop: 8,
   },
 
   infoCard: {
     marginHorizontal: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E3E3E3',
+    borderColor: "#E3E3E3",
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   cardTitle: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#111',
+    fontWeight: "800",
+    color: "#111",
     marginBottom: 12,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#E7E7E7',
+    backgroundColor: "#E7E7E7",
     marginBottom: 12,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 13,
   },
   infoLabel: {
     fontSize: 10,
-    color: '#8A8A8A',
+    color: "#8A8A8A",
   },
   infoValue: {
     fontSize: 10,
-    color: '#111',
-    fontWeight: '600',
+    color: "#111",
+    fontWeight: "600",
   },
 
   transactionSection: {
@@ -315,31 +319,31 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 14,
   },
   detailLabel: {
     fontSize: 10,
-    color: '#8A8A8A',
+    color: "#8A8A8A",
   },
   detailValueWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   detailValue: {
     fontSize: 10,
-    color: '#111',
-    fontWeight: '600',
+    color: "#111",
+    fontWeight: "600",
   },
   detailValueDark: {
-    fontWeight: '800',
+    fontWeight: "800",
   },
   dashedDivider: {
     borderTopWidth: 1,
-    borderColor: '#D9D9D9',
-    borderStyle: 'dashed',
+    borderColor: "#D9D9D9",
+    borderStyle: "dashed",
     marginTop: 4,
     marginBottom: 15,
   },
@@ -348,10 +352,10 @@ const styles = StyleSheet.create({
     width: 24,
     height: 15,
     borderRadius: 3,
-    backgroundColor: '#1F2A2B',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#1F2A2B",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 7,
   },
   cardCircle: {
@@ -360,88 +364,88 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   redCircle: {
-    backgroundColor: '#EB001B',
+    backgroundColor: "#EB001B",
   },
   orangeCircle: {
-    backgroundColor: '#F79E1B',
+    backgroundColor: "#F79E1B",
     marginLeft: -3,
   },
 
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 18,
   },
   totalLabel: {
     fontSize: 11,
-    color: '#111',
-    fontWeight: '900',
+    color: "#111",
+    fontWeight: "900",
   },
   totalValue: {
     fontSize: 11,
-    color: '#111',
-    fontWeight: '900',
+    color: "#111",
+    fontWeight: "900",
   },
 
   receiptButton: {
     marginHorizontal: 18,
     height: 45,
     borderRadius: 23,
-    backgroundColor: '#EFEFEF',
+    backgroundColor: "#EFEFEF",
     borderWidth: 1,
-    borderColor: '#DADADA',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#DADADA",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 4,
   },
   downloadIcon: {
     fontSize: 16,
-    color: '#9A9A9A',
+    color: "#9A9A9A",
     marginRight: 8,
   },
   receiptText: {
     fontSize: 11,
-    color: '#9A9A9A',
-    fontWeight: '600',
+    color: "#9A9A9A",
+    fontWeight: "600",
   },
 
   shareButton: {
     marginHorizontal: 18,
     height: 45,
     borderRadius: 23,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: '#DADADA',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#DADADA",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 12,
   },
   shareIcon: {
     fontSize: 16,
-    color: '#9A9A9A',
+    color: "#9A9A9A",
     marginRight: 8,
   },
   shareText: {
     fontSize: 11,
-    color: '#9A9A9A',
-    fontWeight: '600',
+    color: "#9A9A9A",
+    fontWeight: "600",
   },
 
   homeButton: {
     marginHorizontal: 18,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#1F2A2B',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#1F2A2B",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 18,
   },
   homeText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });
 

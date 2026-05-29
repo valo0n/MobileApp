@@ -1,28 +1,32 @@
-const BaseModel = require('./Base.model');
+const BaseModel = require("./Base.model");
 
 class CarModel extends BaseModel {
   constructor() {
-    super('cars');
+    super("cars");
   }
 
+  // Merr nje makine me te gjitha detajet
   async findWithDetails(carId) {
     const rows = await this.rawQuery(
       `SELECT c.*, cb.name as brand_name, cb.logo_url as brand_logo,
               cc.name as category_name, co.business_name as owner_name,
-              u.first_name as owner_first_name, u.last_name as owner_last_name
+              u.first_name as owner_first_name, u.last_name as owner_last_name,
+              (SELECT image_url FROM car_images WHERE car_id = c.id AND is_primary = TRUE LIMIT 1) as primary_image
        FROM cars c
        JOIN car_brands cb ON c.brand_id = cb.id
        JOIN car_categories cc ON c.category_id = cc.id
        JOIN car_owners co ON c.owner_id = co.id
        JOIN users u ON co.user_id = u.id
        WHERE c.id = ?`,
-      [carId]
+      [carId],
     );
     return rows[0] || null;
   }
 
+  // Merr makinat e lira me filtra + imazhin primary
   async findAvailable(filters = {}) {
-    let query = `SELECT c.*, cb.name as brand_name, cc.name as category_name
+    let query = `SELECT c.*, cb.name as brand_name, cc.name as category_name,
+                        (SELECT image_url FROM car_images WHERE car_id = c.id AND is_primary = TRUE LIMIT 1) as primary_image
                  FROM cars c
                  JOIN car_brands cb ON c.brand_id = cb.id
                  JOIN car_categories cc ON c.category_id = cc.id
@@ -62,7 +66,7 @@ class CarModel extends BaseModel {
 
     if (filters.limit) {
       query += ` LIMIT ?`;
-      values.push(filters.limit);
+      values.push(parseInt(filters.limit));
     }
 
     return this.rawQuery(query, values);
@@ -71,7 +75,7 @@ class CarModel extends BaseModel {
   async getImages(carId) {
     return this.rawQuery(
       `SELECT * FROM car_images WHERE car_id = ? ORDER BY sort_order`,
-      [carId]
+      [carId],
     );
   }
 }

@@ -1,536 +1,287 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
   SafeAreaView,
   ScrollView,
-  TextInput,
   Image,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
+  ActivityIndicator,
+} from "react-native";
+import Svg, { Path } from "react-native-svg";
+import { BackIcon, MoreIcon } from "../../components/common/Icons";
+import { ChatService } from "../../services";
 
-const ChatScreen = ({ navigation }) => {
+const SendIcon = ({ color = "#fff" }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+const PhoneIcon = ({ color = "#111" }) => (
+  <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M22 16.92V19.92C22 20.4 21.6 21 21 21C10 21 3 14 3 3C3 2.4 3.6 2 4.08 2H7.08C7.66 2 8.18 2.35 8.32 2.9C8.6 4.4 9.05 5.86 9.65 7.26C9.85 7.7 9.74 8.22 9.4 8.56L7.83 10.13C9.45 13.42 12.58 16.55 15.87 18.17L17.44 16.6C17.78 16.26 18.3 16.15 18.74 16.35C20.14 16.95 21.6 17.4 23.1 17.68C23.65 17.82 24 18.34 24 18.92"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      transform="translate(-1 0)"
+    />
+  </Svg>
+);
+
+const MOCK_MESSAGES = [
+  {
+    id: 1,
+    content: "Hi! Is the car still available?",
+    sender_id: 99,
+    created_at: "09:10",
+  },
+  {
+    id: 2,
+    content: "Yes, it is available for your dates!",
+    sender_id: 1,
+    created_at: "09:12",
+  },
+  {
+    id: 3,
+    content: "Great, what time can I pick it up?",
+    sender_id: 99,
+    created_at: "09:15",
+  },
+  {
+    id: 4,
+    content: "Your car is on the way! It will arrive soon.",
+    sender_id: 1,
+    created_at: "09:20",
+  },
+];
+
+const ChatScreen = ({ navigation, route }) => {
+  const { conversationId, name, avatar } = route.params || {};
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const myId = 99; // TODO: merr nga auth — id e user-it te kycur
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    loadMessages();
+  }, []);
+
+  const loadMessages = async () => {
+    try {
+      const res = await ChatService.getMessages(conversationId);
+      const data = res.data || [];
+      setMessages(data.length > 0 ? data : MOCK_MESSAGES);
+    } catch (e) {
+      setMessages(MOCK_MESSAGES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!text.trim()) return;
+    const newMsg = {
+      id: Date.now(),
+      content: text.trim(),
+      sender_id: myId,
+      created_at: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    setText("");
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+
+    try {
+      await ChatService.sendMessage(conversationId, newMsg.content);
+    } catch (e) {
+      // mesazhi mbetet ne UI edhe nese backend deshton
+    }
+  };
+
+  const formatTime = (t) => {
+    if (!t) return "";
+    if (typeof t === "string" && t.length <= 8) return t;
+    try {
+      return new Date(t).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#E9E6E6" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <BackIcon size={20} color="#111" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Image
+            source={{ uri: avatar || "https://i.pravatar.cc/100?img=47" }}
+            style={styles.headerAvatar}
+          />
+          <View>
+            <Text style={styles.headerName}>{name || "Chat"}</Text>
+            <Text style={styles.headerStatus}>Online</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.iconBtn}>
+          <PhoneIcon color="#111" />
+        </TouchableOpacity>
+      </View>
 
       <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={90}
       >
-        <View style={styles.phoneCard}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backText}>‹</Text>
-            </TouchableOpacity>
-
-            <View style={styles.profileBox}>
-              <Image
-                source={{ uri: 'https://randomuser.me/api/portraits/women/12.jpg' }}
-                style={styles.avatar}
-              />
-              <View>
-                <Text style={styles.profileName}>Hela Quintin</Text>
-                <View style={styles.onlineRow}>
-                  <View style={styles.onlineDot} />
-                  <Text style={styles.onlineText}>Online</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.iconButton}>
-                <Text style={styles.headerIcon}>▭</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.iconButton}>
-                <Text style={styles.headerIcon}>♧</Text>
-              </TouchableOpacity>
-            </View>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color="#111" />
           </View>
-
-          {/* Messages */}
+        ) : (
           <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.messagesContainer}
+            ref={scrollRef}
+            style={styles.messagesArea}
+            contentContainerStyle={{ padding: 16 }}
+            onContentSizeChange={() =>
+              scrollRef.current?.scrollToEnd({ animated: false })
+            }
           >
-            <View style={styles.partnerInfo}>
-              <Text style={styles.partnerName}>Hela Quintin</Text>
-              <Text style={styles.partnerSub}>Angelina is a partner of QENT.</Text>
-            </View>
-
-            <MessageLeft
-              text="Ready for your rental adventure? We have a sleek and sporty 2016 red for rent! Reserve your ride now!"
-              time="09:10 am"
-            />
-
-            <MessageRight
-              text="Hi, I'm interested in renting your car. Is it available from [Date] to [Date]?"
-              time="09:13 am"
-            />
-
-            <MessageLeft
-              text="Hello! Yes, the car is available on those dates. Could you please confirm the pickup and drop-off locations?"
-              time="09:15 am"
-            />
-
-            <MessageRight
-              text="Great! I'd like to pick it up from [Pickup Location] and return it to [Drop-off Location]."
-              time="09:17 am"
-            />
-
-            <VoiceMessage />
-
-            <MessageLeft text="It’s ok no problem" time="09:19 am" />
-
-            <View style={styles.typingRow}>
-              <Image
-                source={{ uri: 'https://randomuser.me/api/portraits/women/12.jpg' }}
-                style={styles.smallAvatar}
-              />
-              <Text style={styles.typingText}>Typing...</Text>
-            </View>
+            {messages.map((m) => {
+              const isMe = m.sender_id === myId;
+              return (
+                <View
+                  key={m.id}
+                  style={[
+                    styles.msgRow,
+                    isMe ? styles.msgRight : styles.msgLeft,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.bubble,
+                      isMe ? styles.bubbleMe : styles.bubbleOther,
+                    ]}
+                  >
+                    <Text style={[styles.msgText, isMe && { color: "#fff" }]}>
+                      {m.content}
+                    </Text>
+                  </View>
+                  <Text style={styles.msgTime}>{formatTime(m.created_at)}</Text>
+                </View>
+              );
+            })}
           </ScrollView>
+        )}
 
-          {/* Composer */}
-          <View style={styles.composerWrapper}>
-            <View style={styles.composer}>
-              <TouchableOpacity style={styles.plusButton}>
-                <Text style={styles.plusText}>›</Text>
-              </TouchableOpacity>
-
-              <TextInput
-                style={styles.input}
-                placeholder="I'll compare the booking now. Thank you!"
-                placeholderTextColor="#444"
-              />
-
-              <TouchableOpacity>
-                <Text style={styles.emoji}>♡</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.sendButton}>
-                <Text style={styles.sendText}>➤</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.fakeKeyboard}>
-              <KeyboardRow letters={['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p']} />
-              <KeyboardRow letters={['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l']} />
-              <KeyboardRow letters={['⇧', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '⌫']} />
-
-              <View style={styles.keyboardBottom}>
-                <View style={styles.keySmall}>
-                  <Text style={styles.keyText}>?123</Text>
-                </View>
-                <View style={styles.keySmall}>
-                  <Text style={styles.keyText}>⌘</Text>
-                </View>
-                <View style={styles.spaceKey} />
-                <View style={styles.searchKey}>
-                  <Text style={styles.searchText}>↵</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+        {/* Input */}
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Type a message..."
+            placeholderTextColor="#9CA3AF"
+            value={text}
+            onChangeText={setText}
+            multiline
+          />
+          <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
+            <SendIcon color="#fff" />
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const MessageLeft = ({ text, time }) => (
-  <View style={styles.leftMessageRow}>
-    <Image
-      source={{ uri: 'https://randomuser.me/api/portraits/women/12.jpg' }}
-      style={styles.smallAvatar}
-    />
-    <View>
-      <View style={styles.leftBubble}>
-        <Text style={styles.messageText}>{text}</Text>
-      </View>
-      <Text style={styles.leftTime}>{time}</Text>
-    </View>
-  </View>
-);
-
-const MessageRight = ({ text, time }) => (
-  <View style={styles.rightMessageRow}>
-    <View>
-      <View style={styles.rightBubble}>
-        <Text style={styles.messageText}>{text}</Text>
-      </View>
-      <Text style={styles.rightTime}>{time}</Text>
-    </View>
-  </View>
-);
-
-const VoiceMessage = () => (
-  <View style={styles.voiceRow}>
-    <View style={styles.voiceBubble}>
-      <View style={styles.playCircle}>
-        <Text style={styles.playText}>▷</Text>
-      </View>
-
-      <View style={styles.waveBox}>
-        {Array.from({ length: 22 }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.waveLine,
-              { height: 8 + ((index % 5) * 4) },
-            ]}
-          />
-        ))}
-      </View>
-
-      <Text style={styles.voiceTime}>0:11</Text>
-    </View>
-
-    <View style={styles.blueDot} />
-  </View>
-);
-
-const KeyboardRow = ({ letters }) => (
-  <View style={styles.keyboardRow}>
-    {letters.map((letter, index) => (
-      <View key={index} style={styles.key}>
-        <Text style={styles.keyText}>{letter}</Text>
-      </View>
-    ))}
-  </View>
-);
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#E9E6E6',
-  },
-  keyboardView: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-  },
-  phoneCard: {
-    flex: 1,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 26,
-    overflow: 'hidden',
-  },
-
+  container: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
-    height: 70,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9F9F9',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEE",
   },
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  backText: {
-    fontSize: 25,
-    color: '#1C2526',
-    marginTop: -3,
-  },
-  profileBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 9,
-  },
-  profileName: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#111',
-  },
-  onlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-  onlineDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#29C768',
-    marginRight: 4,
-  },
-  onlineText: {
-    fontSize: 8,
-    color: '#111',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconButton: {
-    marginLeft: 13,
-  },
-  headerIcon: {
-    fontSize: 17,
-    color: '#1F2A2B',
-  },
-
-  messagesContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
-  },
-  partnerInfo: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  partnerName: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#111',
-  },
-  partnerSub: {
-    fontSize: 8,
-    color: '#9A9A9A',
-    marginTop: 6,
-  },
-
-  leftMessageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginBottom: 18,
-  },
-  smallAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  leftBubble: {
-    maxWidth: 220,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-  },
-  rightMessageRow: {
-    alignItems: 'flex-end',
-    marginBottom: 18,
-  },
-  rightBubble: {
-    maxWidth: 220,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-  },
-  messageText: {
-    fontSize: 9,
-    lineHeight: 14,
-    color: '#111',
-  },
-  leftTime: {
-    fontSize: 8,
-    color: '#9A9A9A',
-    marginTop: 6,
-    marginLeft: 6,
-  },
-  rightTime: {
-    fontSize: 8,
-    color: '#9A9A9A',
-    marginTop: 6,
-    textAlign: 'right',
-  },
-
-  voiceRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  voiceBubble: {
-    width: 210,
-    height: 42,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-  },
-  playCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#F4F4F4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  playText: {
+  headerCenter: { flexDirection: "row", alignItems: "center" },
+  headerAvatar: { width: 38, height: 38, borderRadius: 19, marginRight: 10 },
+  headerName: { fontSize: 15, fontWeight: "700", color: "#111" },
+  headerStatus: { fontSize: 11, color: "#10B981" },
+  loadingWrap: { flex: 1, justifyContent: "center", alignItems: "center" },
+  messagesArea: { flex: 1 },
+  msgRow: { marginBottom: 14, maxWidth: "80%" },
+  msgLeft: { alignSelf: "flex-start", alignItems: "flex-start" },
+  msgRight: { alignSelf: "flex-end", alignItems: "flex-end" },
+  bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+  bubbleMe: { backgroundColor: "#2D2D2D", borderBottomRightRadius: 4 },
+  bubbleOther: { backgroundColor: "#fff", borderBottomLeftRadius: 4 },
+  msgText: { fontSize: 14, color: "#111", lineHeight: 20 },
+  msgTime: {
     fontSize: 10,
-    color: '#9A9A9A',
+    color: "#9CA3AF",
+    marginTop: 4,
+    marginHorizontal: 4,
   },
-  waveBox: {
-    flex: 1,
-    height: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  waveLine: {
-    width: 2,
-    borderRadius: 2,
-    backgroundColor: '#D3D3D3',
-    marginRight: 4,
-  },
-  voiceTime: {
-    fontSize: 8,
-    color: '#9A9A9A',
-    marginLeft: 5,
-  },
-  blueDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#2F80ED',
-    marginLeft: 5,
-  },
-
-  typingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  typingText: {
-    fontSize: 9,
-    color: '#9A9A9A',
-    fontStyle: 'italic',
-  },
-
-  composerWrapper: {
-    backgroundColor: '#F9F9F9',
-  },
-  composer: {
-    height: 44,
-    marginHorizontal: 12,
-    marginBottom: 5,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  plusButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#F4F4F4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 7,
-  },
-  plusText: {
-    fontSize: 21,
-    color: '#9A9A9A',
-    transform: [{ rotate: '180deg' }],
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#F5F5F5",
+    borderTopWidth: 1,
+    borderTopColor: "#EEE",
   },
   input: {
     flex: 1,
-    fontSize: 9,
-    color: '#111',
-    paddingVertical: 0,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#111",
+    maxHeight: 100,
+    marginRight: 10,
   },
-  emoji: {
-    fontSize: 16,
-    color: '#9A9A9A',
-    marginHorizontal: 8,
-  },
-  sendButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendText: {
-    fontSize: 15,
-    color: '#1F2A2B',
-  },
-
-  fakeKeyboard: {
-    height: 190,
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 5,
-    paddingTop: 7,
-  },
-  keyboardRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 7,
-  },
-  key: {
-    flex: 1,
-    height: 32,
-    marginHorizontal: 2,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  keyText: {
-    fontSize: 13,
-    color: '#111',
-  },
-  keyboardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  keySmall: {
-    width: 44,
-    height: 32,
-    borderRadius: 5,
-    backgroundColor: '#DADADA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 2,
-  },
-  spaceKey: {
-    flex: 1,
-    height: 32,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 2,
-  },
-  searchKey: {
-    width: 48,
-    height: 32,
-    borderRadius: 5,
-    backgroundColor: '#2F80ED',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 2,
-  },
-  searchText: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    fontWeight: '700',
+  sendBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#2D2D2D",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

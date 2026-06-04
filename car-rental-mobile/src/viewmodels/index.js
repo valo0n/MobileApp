@@ -2,9 +2,16 @@
 // ViewModels — React hooks implementing MVVM pattern
 // ============================================================
 
-import { useState, useEffect, useCallback } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { AuthService, CarService, BookingService, ChatService, NotificationService, FavoriteService } from '../services';
+import { useState, useEffect, useCallback } from "react";
+import * as SecureStore from "expo-secure-store";
+import {
+  AuthService,
+  CarService,
+  BookingService,
+  ChatService,
+  NotificationService,
+  FavoriteService,
+} from "../services";
 
 // ── Auth ViewModel ──
 export const useAuthViewModel = () => {
@@ -17,11 +24,15 @@ export const useAuthViewModel = () => {
     setError(null);
     try {
       const res = await AuthService.register(data);
-      await SecureStore.setItemAsync('auth_token', res.data.token);
+      await SecureStore.setItemAsync("auth_token", res.data.token);
       setUser(res.data.user);
       return res.data;
-    } catch (e) { setError(e.message); throw e; }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e.message);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const login = async (data) => {
@@ -29,15 +40,19 @@ export const useAuthViewModel = () => {
     setError(null);
     try {
       const res = await AuthService.login(data);
-      await SecureStore.setItemAsync('auth_token', res.data.token);
+      await SecureStore.setItemAsync("auth_token", res.data.token);
       setUser(res.data.user);
       return res.data;
-    } catch (e) { setError(e.message); throw e; }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e.message);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('auth_token');
+    await SecureStore.deleteItemAsync("auth_token");
     setUser(null);
   };
 
@@ -45,7 +60,9 @@ export const useAuthViewModel = () => {
     try {
       const res = await AuthService.getProfile();
       setUser(res.data);
-    } catch { setUser(null); }
+    } catch {
+      setUser(null);
+    }
   };
 
   return { user, loading, error, register, login, logout, loadProfile };
@@ -63,25 +80,40 @@ export const useCarsViewModel = () => {
     try {
       const res = await CarService.getAll(filters);
       setCars(res.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loadCategories = async () => {
     try {
       const res = await CarService.getCategories();
       setCategories(res.data);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const loadBrands = async () => {
     try {
       const res = await CarService.getBrands();
       setBrands(res.data);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  return { cars, categories, brands, loading, loadCars, loadCategories, loadBrands };
+  return {
+    cars,
+    categories,
+    brands,
+    loading,
+    loadCars,
+    loadCategories,
+    loadBrands,
+  };
 };
 
 // ── Bookings ViewModel ──
@@ -94,8 +126,11 @@ export const useBookingsViewModel = () => {
     try {
       const res = await BookingService.getAll(status);
       setBookings(res.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const createBooking = async (data) => {
@@ -122,8 +157,11 @@ export const useChatViewModel = () => {
     try {
       const res = await ChatService.getConversations();
       setConversations(res.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadMessages = async (convId) => {
@@ -137,7 +175,14 @@ export const useChatViewModel = () => {
     return res.data;
   };
 
-  return { conversations, messages, loading, loadConversations, loadMessages, sendMessage };
+  return {
+    conversations,
+    messages,
+    loading,
+    loadConversations,
+    loadMessages,
+    sendMessage,
+  };
 };
 
 // ── Notifications ViewModel ──
@@ -158,19 +203,23 @@ export const useNotificationsViewModel = () => {
 };
 
 // ── Favorites ViewModel ──
+// ── Favorites ViewModel ──
 export const useFavoritesViewModel = () => {
   const [favorites, setFavorites] = useState([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await FavoriteService.getAll();
     setFavorites(res.data);
-  };
+  }, []);
 
-  const toggle = async (carId) => {
-    const res = await FavoriteService.toggle(carId);
-    load();
-    return res.data;
-  };
+  const toggle = useCallback(
+    async (carId) => {
+      const res = await FavoriteService.toggle(carId);
+      await load();
+      return res.data;
+    },
+    [load],
+  );
 
   return { favorites, load, toggle };
 };

@@ -68,3 +68,9 @@ export const PromotionService = {
   getAll: () => api.get("/promotions"),
   validate: (code) => api.post("/promotions/validate", { code }),
 };
+
+// ── Owner / Partner Service ──
+export const OwnerService = {
+  getMine: () => api.get("/owners/me"),
+  register: (data) => api.post("/owners/register", data),
+};

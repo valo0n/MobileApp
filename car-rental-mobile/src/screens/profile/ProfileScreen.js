@@ -10,6 +10,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Share,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as SecureStore from "expo-secure-store";
@@ -202,7 +203,13 @@ const ProfileScreen = ({ navigation }) => {
       },
     ]);
   };
-
+  const handleInvite = async () => {
+    try {
+      await Share.share({
+        message: "Join me on QENT — rent cars easily! Download the app.",
+      });
+    } catch (e) {}
+  };
   const generalMenu = [
     {
       icon: HeartIcon,
@@ -222,16 +229,32 @@ const ProfileScreen = ({ navigation }) => {
     {
       icon: PartnerIcon,
       label: "Connected to QENT Partnerships",
-      onPress: () => {},
+      onPress: () => navigation.navigate("PartnerWelcome"),
     },
   ];
 
   const supportMenu = [
-    { icon: SettingsIcon, label: "Settings", onPress: () => {} },
-    { icon: LangIcon, label: "Languages", onPress: () => {} },
-    { icon: InviteIcon, label: "Invite Friends", onPress: () => {} },
-    { icon: PrivacyIcon, label: "privacy policy", onPress: () => {} },
-    { icon: HelpIcon, label: "Help Support", onPress: () => {} },
+    {
+      icon: SettingsIcon,
+      label: "Settings",
+      onPress: () => navigation.navigate("Settings"),
+    },
+    {
+      icon: LangIcon,
+      label: "Languages",
+      onPress: () => navigation.navigate("Languages"),
+    },
+    { icon: InviteIcon, label: "Invite Friends", onPress: handleInvite },
+    {
+      icon: PrivacyIcon,
+      label: "privacy policy",
+      onPress: () => navigation.navigate("PrivacyPolicy"),
+    },
+    {
+      icon: HelpIcon,
+      label: "Help Support",
+      onPress: () => navigation.navigate("HelpSupport"),
+    },
     { icon: LogoutIcon, label: "Log out", onPress: handleLogout },
   ];
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { LocationIcon } from "../../components/common/Icons";
+import { CarService } from "../../services";
 
-// Mini icons used vetëm këtu
+// ── Mini icons ──
 const CloseIcon = ({ size = 22, color = "#111" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
@@ -82,7 +83,6 @@ const ChevronRight = ({ size = 18, color = "#111" }) => (
   </Svg>
 );
 
-const CAR_TYPES = ["All Cars", "Regular Cars", "Luxury Cars"];
 const RENTAL_TIMES = ["Hour", "Day", "Weekly", "Monthly"];
 const COLORS = [
   { name: "White", value: "#fff", border: true },
@@ -91,7 +91,13 @@ const COLORS = [
   { name: "Black", value: "#111" },
 ];
 const SEATS = [2, 4, 6, 8];
-const FUEL_TYPES = ["Electric", "Petrol", "Diesel", "Hybrid"];
+const FUEL_TYPES = ["electric", "petrol", "diesel", "hybrid"];
+const FUEL_LABELS = {
+  electric: "Electric",
+  petrol: "Petrol",
+  diesel: "Diesel",
+  hybrid: "Hybrid",
+};
 const MONTHS = [
   "January",
   "February",
@@ -108,48 +114,82 @@ const MONTHS = [
 ];
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Pjesërisht ndërto kalendarin për nje muaj
 const buildCalendar = (year, month) => {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrev = new Date(year, month, 0).getDate();
-
   const cells = [];
-  for (let i = firstDay - 1; i >= 0; i--) {
+  for (let i = firstDay - 1; i >= 0; i--)
     cells.push({ day: daysInPrev - i, current: false });
-  }
-  for (let i = 1; i <= daysInMonth; i++) {
-    cells.push({ day: i, current: true });
-  }
-  while (cells.length % 7 !== 0) {
+  for (let i = 1; i <= daysInMonth; i++) cells.push({ day: i, current: true });
+  while (cells.length % 7 !== 0)
     cells.push({
       day: cells.length - daysInMonth - firstDay + 1,
       current: false,
     });
-  }
   return cells;
 };
 
 const FiltersScreen = ({ navigation }) => {
-  const [carType, setCarType] = useState("All Cars");
+  // Kategorite nga backend
+  const [categories, setCategories] = useState([]);
+  const [carType, setCarType] = useState(null); // category_id ose null per 'All'
+
   const [rentalTime, setRentalTime] = useState("Day");
-  const [seats, setSeats] = useState(4);
-  const [fuel, setFuel] = useState("Electric");
-  const [color, setColor] = useState("Blue");
-  const [location, setLocation] = useState("Shore Dr, Chicago 0062 Usa");
+  const [seats, setSeats] = useState(null);
+  const [fuel, setFuel] = useState(null);
+  const [color, setColor] = useState(null);
+  const [location, setLocation] = useState("");
+  const [minPrice, setMinPrice] = useState(10);
+  const [maxPrice, setMaxPrice] = useState(230);
+  const [resultCount, setResultCount] = useState(null);
+
+  // Date picker
   const [pickupDate, setPickupDate] = useState({
     day: 6,
     month: 0,
     year: 2022,
   });
-
-  // Date picker
   const [dateModalVisible, setDateModalVisible] = useState(false);
-  const [tempMonth, setTempMonth] = useState(pickupDate.month);
-  const [tempYear, setTempYear] = useState(pickupDate.year);
-  const [tempDay, setTempDay] = useState(pickupDate.day);
+  const [tempMonth, setTempMonth] = useState(0);
+  const [tempYear, setTempYear] = useState(2022);
+  const [tempDay, setTempDay] = useState(6);
 
   const cells = buildCalendar(tempYear, tempMonth);
+
+  useEffect(() => {
+    // Ngarko kategorite reale nga DB
+    CarService.getCategories()
+      .then((res) => setCategories(res.data || []))
+      .catch(() => setCategories([]));
+    // Numero rezultatet fillestare
+    updateCount({});
+  }, []);
+
+  // Ndertо filtrat dhe i dergon backend per me numeru rezultatet
+  const buildFilters = () => {
+    const f = {};
+    if (carType) f.category_id = carType;
+    if (minPrice) f.min_price = minPrice;
+    if (maxPrice && maxPrice < 230) f.max_price = maxPrice;
+    if (seats) f.min_seats = seats;
+    if (fuel) f.fuel_type = fuel;
+    return f;
+  };
+
+  const updateCount = async (filters) => {
+    try {
+      const res = await CarService.getAll(filters);
+      setResultCount((res.data || []).length);
+    } catch (e) {
+      setResultCount(0);
+    }
+  };
+
+  // Sa here ndryshon nje filter, perditeso numrin
+  useEffect(() => {
+    updateCount(buildFilters());
+  }, [carType, seats, fuel, minPrice, maxPrice]);
 
   const openDatePicker = () => {
     setTempMonth(pickupDate.month);
@@ -157,12 +197,10 @@ const FiltersScreen = ({ navigation }) => {
     setTempDay(pickupDate.day);
     setDateModalVisible(true);
   };
-
   const confirmDate = () => {
     setPickupDate({ day: tempDay, month: tempMonth, year: tempYear });
     setDateModalVisible(false);
   };
-
   const prevMonth = () => {
     if (tempMonth === 0) {
       setTempMonth(11);
@@ -175,10 +213,22 @@ const FiltersScreen = ({ navigation }) => {
       setTempYear(tempYear + 1);
     } else setTempMonth(tempMonth + 1);
   };
+  const formatDate = (d) =>
+    `${String(d.day).padStart(2, "0")},${MONTHS[d.month].slice(0, 3)},${d.year}`;
 
-  const formatDate = (d) => {
-    const monthShort = MONTHS[d.month].slice(0, 3);
-    return `${String(d.day).padStart(2, "0")},${monthShort},${d.year}`;
+  const clearAll = () => {
+    setCarType(null);
+    setSeats(null);
+    setFuel(null);
+    setColor(null);
+    setMinPrice(10);
+    setMaxPrice(230);
+    setLocation("");
+  };
+
+  // Apliko filtrat — cojm te Search me filtrat e zgjedhur
+  const applyFilters = () => {
+    navigation.navigate("Search", { filters: buildFilters() });
   };
 
   return (
@@ -198,32 +248,47 @@ const FiltersScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* Type of Cars */}
+        {/* Type of Cars — nga backend */}
         <View style={styles.section}>
           <Text style={styles.label}>Type of Cars</Text>
           <View style={styles.row}>
-            {CAR_TYPES.map((t) => {
-              const active = carType === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => setCarType(t)}
-                >
-                  <Text
-                    style={[styles.chipText, active && styles.chipTextActive]}
+            <TouchableOpacity
+              style={[styles.chip, carType === null && styles.chipActive]}
+              onPress={() => setCarType(null)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  carType === null && styles.chipTextActive,
+                ]}
+              >
+                All Cars
+              </Text>
+            </TouchableOpacity>
+            {categories
+              .filter((c) => c.name !== "All Cars")
+              .map((c) => {
+                const active = carType === c.id;
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setCarType(c.id)}
                   >
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+                    <Text
+                      style={[styles.chipText, active && styles.chipTextActive]}
+                    >
+                      {c.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
           </View>
         </View>
 
         <View style={styles.divider} />
 
-        {/* Price range — graphical bars */}
+        {/* Price range */}
         <View style={styles.section}>
           <Text style={styles.label}>Price range</Text>
           <View style={styles.barsContainer}>
@@ -241,7 +306,7 @@ const FiltersScreen = ({ navigation }) => {
             <View style={styles.priceCol}>
               <Text style={styles.priceLabel}>Minimum</Text>
               <View style={styles.priceBox}>
-                <Text style={styles.priceText}>$10</Text>
+                <Text style={styles.priceText}>${minPrice}</Text>
               </View>
             </View>
             <View style={styles.priceCol}>
@@ -249,7 +314,7 @@ const FiltersScreen = ({ navigation }) => {
                 Maximum
               </Text>
               <View style={styles.priceBox}>
-                <Text style={styles.priceText}>$230+</Text>
+                <Text style={styles.priceText}>${maxPrice}+</Text>
               </View>
             </View>
           </View>
@@ -297,7 +362,7 @@ const FiltersScreen = ({ navigation }) => {
               style={styles.locationInput}
               value={location}
               onChangeText={setLocation}
-              placeholder="Enter location"
+              placeholder="Shore Dr, Chicago 0062 Usa"
               placeholderTextColor="#9CA3AF"
             />
           </View>
@@ -309,9 +374,7 @@ const FiltersScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={styles.label}>Colors</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
+            <Text style={styles.seeAll}>See All</Text>
           </View>
           <View style={styles.row}>
             {COLORS.map((c) => {
@@ -320,7 +383,7 @@ const FiltersScreen = ({ navigation }) => {
                 <TouchableOpacity
                   key={c.name}
                   style={styles.colorItem}
-                  onPress={() => setColor(c.name)}
+                  onPress={() => setColor(active ? null : c.name)}
                 >
                   <View
                     style={[
@@ -347,7 +410,7 @@ const FiltersScreen = ({ navigation }) => {
                 <TouchableOpacity
                   key={s}
                   style={[styles.seatChip, active && styles.chipActive]}
-                  onPress={() => setSeats(s)}
+                  onPress={() => setSeats(active ? null : s)}
                 >
                   <Text
                     style={[styles.chipText, active && styles.chipTextActive]}
@@ -370,12 +433,12 @@ const FiltersScreen = ({ navigation }) => {
                 <TouchableOpacity
                   key={f}
                   style={[styles.fuelChip, active && styles.chipActive]}
-                  onPress={() => setFuel(f)}
+                  onPress={() => setFuel(active ? null : f)}
                 >
                   <Text
                     style={[styles.chipText, active && styles.chipTextActive]}
                   >
-                    {f}
+                    {FUEL_LABELS[f]}
                   </Text>
                 </TouchableOpacity>
               );
@@ -386,14 +449,13 @@ const FiltersScreen = ({ navigation }) => {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={clearAll}>
           <Text style={styles.clearText}>Clear All</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.showBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.showBtnText}>Show 100+ Cars</Text>
+        <TouchableOpacity style={styles.showBtn} onPress={applyFilters}>
+          <Text style={styles.showBtnText}>
+            Show {resultCount != null ? resultCount : ""} Cars
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -407,8 +469,6 @@ const FiltersScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Time</Text>
-
-            {/* Time pills */}
             <View style={styles.timeRow}>
               <View style={[styles.timePill, styles.timePillActive]}>
                 <ClockIcon size={14} color="#fff" />
@@ -419,8 +479,6 @@ const FiltersScreen = ({ navigation }) => {
                 <Text style={styles.timePillText}>05 : 30 pm</Text>
               </View>
             </View>
-
-            {/* Calendar header */}
             <View style={styles.calHeader}>
               <TouchableOpacity onPress={prevMonth}>
                 <ChevronLeft size={20} color="#111" />
@@ -432,8 +490,6 @@ const FiltersScreen = ({ navigation }) => {
                 <ChevronRight size={20} color="#111" />
               </TouchableOpacity>
             </View>
-
-            {/* Days of week */}
             <View style={styles.daysRow}>
               {DAYS_SHORT.map((d) => (
                 <Text key={d} style={styles.dayHeader}>
@@ -442,8 +498,6 @@ const FiltersScreen = ({ navigation }) => {
               ))}
             </View>
             <View style={styles.divider2} />
-
-            {/* Cells */}
             <View style={styles.cellsGrid}>
               {cells.map((c, i) => {
                 const isSelected = c.current && tempDay === c.day;
@@ -467,8 +521,6 @@ const FiltersScreen = ({ navigation }) => {
                 );
               })}
             </View>
-
-            {/* Modal buttons */}
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.cancelBtn}
@@ -648,8 +700,6 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   showBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-
-  // ── Modal ──
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

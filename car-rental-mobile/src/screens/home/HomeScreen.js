@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, memo } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import QentLogo from "../../components/common/QentLogo";
 import {
   SearchIcon,
@@ -23,53 +24,118 @@ import {
   SeatIcon,
   DollarIcon,
 } from "../../components/common/Icons";
-import { CarService, FavoriteService } from "../../services";
-
-// Brand logos statike (vetem dizajn, nuk kane nevoje per backend)
-const BRAND_LOGOS = {
-  Tesla: "https://logos-world.net/wp-content/uploads/2020/04/Tesla-Logo.png",
-  Lamborghini:
-    "https://logos-world.net/wp-content/uploads/2020/04/Lamborghini-Logo.png",
-  BMW: "https://logos-world.net/wp-content/uploads/2020/04/BMW-Logo.png",
-  Ferrari:
-    "https://logos-world.net/wp-content/uploads/2020/04/Ferrari-Logo.png",
-  "Mercedes-Benz":
-    "https://logos-world.net/wp-content/uploads/2020/04/Mercedes-Benz-Logo.png",
-  Audi: "https://logos-world.net/wp-content/uploads/2020/04/Audi-Logo.png",
-};
+import {
+  CarService,
+  FavoriteService,
+  AuthService,
+  NotificationService,
+} from "../../services";
 
 const fallbackImg =
-  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&q=80";
+  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400&q=60";
+const fallbackAvatar = "https://i.pravatar.cc/100?img=12";
+
+// ── Card e memoizuar ──
+const CarCard = memo(({ car, isFav, onPress, onFav }) => {
+  const img = car.primary_image || fallbackImg;
+  const displayName = `${car.brand_name || ""} ${car.model || ""}`.trim();
+  return (
+    <TouchableOpacity
+      style={styles.carCard}
+      activeOpacity={0.85}
+      onPress={onPress}
+    >
+      <View style={styles.carImageWrapper}>
+        <Image
+          source={{ uri: img }}
+          style={styles.carImage}
+          resizeMode="cover"
+          fadeDuration={0}
+        />
+        <TouchableOpacity style={styles.heartBtn} onPress={onFav}>
+          <HeartIcon size={16} color="#111" filled={isFav} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.carInfo}>
+        <Text style={styles.carName} numberOfLines={1}>
+          {displayName || "Car"}
+        </Text>
+        <View style={styles.ratingRow}>
+          <Text style={styles.ratingText}>
+            {(car.average_rating
+              ? parseFloat(car.average_rating)
+              : 5.0
+            ).toFixed(1)}
+          </Text>
+          <StarIcon size={12} color="#FF9500" />
+        </View>
+        <View style={styles.locationRow}>
+          <LocationIcon size={12} color="#9CA3AF" />
+          <Text style={styles.locationText} numberOfLines={1}>
+            {car.address || "Available"}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <SeatIcon size={12} color="#9CA3AF" />
+            <Text style={styles.metaText}>{car.seats || 5} Seats</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <DollarIcon size={12} color="#9CA3AF" />
+            <Text style={styles.metaText}>${car.price_per_day || 0}/Day</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 const HomeScreen = ({ navigation }) => {
   const [searchText, setSearchText] = useState("");
   const [cars, setCars] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [favorites, setFavorites] = useState({});
+  const [avatar, setAvatar] = useState(fallbackAvatar);
+  const [notifCount, setNotifCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [favorites, setFavorites] = useState({});
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Merr makinat dhe brand-et nga backend
+  // Ngarko KREJT nga backend
   const loadData = async () => {
     try {
-      const [carsRes, brandsRes] = await Promise.all([
+      const [carsRes, brandsRes, profileRes, countRes] = await Promise.all([
         CarService.getAll(),
         CarService.getBrands(),
+        AuthService.getProfile().catch(() => null),
+        NotificationService.getCount().catch(() => null),
       ]);
+
       setCars(carsRes.data || []);
       setBrands(brandsRes.data || []);
+
+      // Avatar real nga profili
+      if (profileRes?.data?.avatar_url) {
+        setAvatar(profileRes.data.avatar_url);
+      }
+
+      // Numri real i njoftimeve
+      if (countRes?.data?.count != null) {
+        setNotifCount(countRes.data.count);
+      }
     } catch (e) {
       console.error("Home load error:", e.message);
-      setCars([]);
-      setBrands([]);
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!loaded) loadData();
+    }, [loaded]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -77,83 +143,28 @@ const HomeScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const toggleFavorite = async (carId) => {
+  const toggleFavorite = useCallback(async (carId) => {
     setFavorites((prev) => ({ ...prev, [carId]: !prev[carId] }));
     try {
       await FavoriteService.toggle(carId);
     } catch (e) {
-      // Nese deshton, kthe mbrapa
       setFavorites((prev) => ({ ...prev, [carId]: !prev[carId] }));
     }
-  };
+  }, []);
 
-  // Ndaj makinat: 4 te parat per "Best Cars", pjesa per "Nearby"
-  const bestCars = cars.slice(0, 6);
-  const nearbyCars = cars.slice(6, 9);
+  const openCar = useCallback(
+    (car) => {
+      const img = car.primary_image || fallbackImg;
+      const displayName = `${car.brand_name || ""} ${car.model || ""}`.trim();
+      navigation.navigate("CarDetail", {
+        car: { ...car, name: displayName, image: img },
+      });
+    },
+    [navigation],
+  );
 
-  const renderCarCard = (car) => {
-    const img = car.primary_image || car.image || fallbackImg;
-    const brandName = car.brand_name || "";
-    const displayName = `${brandName} ${car.model || car.name || ""}`.trim();
-    return (
-      <TouchableOpacity
-        key={car.id}
-        style={styles.carCard}
-        activeOpacity={0.85}
-        onPress={() =>
-          navigation.navigate("CarDetail", {
-            car: { ...car, name: displayName, image: img },
-          })
-        }
-      >
-        <View style={styles.carImageWrapper}>
-          <Image
-            source={{ uri: img }}
-            style={styles.carImage}
-            resizeMode="cover"
-          />
-          <TouchableOpacity
-            style={styles.heartBtn}
-            onPress={() => toggleFavorite(car.id)}
-          >
-            <HeartIcon size={16} color="#111" filled={!!favorites[car.id]} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.carInfo}>
-          <Text style={styles.carName} numberOfLines={1}>
-            {displayName || "Car"}
-          </Text>
-          <View style={styles.ratingRow}>
-            <Text style={styles.ratingText}>
-              {(car.average_rating
-                ? parseFloat(car.average_rating)
-                : 5.0
-              ).toFixed(1)}
-            </Text>
-            <StarIcon size={12} color="#FF9500" />
-          </View>
-          <View style={styles.locationRow}>
-            <LocationIcon size={12} color="#9CA3AF" />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {car.address || car.location || "Available"}
-            </Text>
-          </View>
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <SeatIcon size={12} color="#9CA3AF" />
-              <Text style={styles.metaText}>{car.seats || 5} Seats</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <DollarIcon size={12} color="#9CA3AF" />
-              <Text style={styles.metaText}>
-                ${car.price_per_day || car.price || 0}/Day
-              </Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const bestCars = cars.slice(0, 4);
+  const nearbyCars = cars.slice(4);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -171,14 +182,17 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate("Notifications")}
           >
             <BellIcon size={22} color="#111" />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>2</Text>
-            </View>
+            {notifCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notifCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
             <Image
-              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
+              source={{ uri: avatar }}
               style={styles.avatar}
+              fadeDuration={0}
             />
           </TouchableOpacity>
         </View>
@@ -195,6 +209,7 @@ const HomeScreen = ({ navigation }) => {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
+          removeClippedSubviews
         >
           {/* Search */}
           <View style={styles.searchRow}>
@@ -217,7 +232,7 @@ const HomeScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Brands */}
+          {/* Brands — logot nga backend (brand.logo_url) */}
           {brands.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Brands</Text>
@@ -225,15 +240,17 @@ const HomeScreen = ({ navigation }) => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={{ marginTop: 14 }}
+                removeClippedSubviews
               >
                 {brands.map((brand) => (
                   <TouchableOpacity key={brand.id} style={styles.brandItem}>
                     <View style={styles.brandCircle}>
-                      {BRAND_LOGOS[brand.name] ? (
+                      {brand.logo_url ? (
                         <Image
-                          source={{ uri: BRAND_LOGOS[brand.name] }}
+                          source={{ uri: brand.logo_url }}
                           style={styles.brandLogo}
                           resizeMode="contain"
+                          fadeDuration={0}
                         />
                       ) : (
                         <Text style={styles.brandInitial}>{brand.name[0]}</Text>
@@ -259,13 +276,23 @@ const HomeScreen = ({ navigation }) => {
             </View>
 
             {bestCars.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {bestCars.map(renderCarCard)}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                removeClippedSubviews
+              >
+                {bestCars.map((car) => (
+                  <CarCard
+                    key={car.id}
+                    car={car}
+                    isFav={!!favorites[car.id]}
+                    onPress={() => openCar(car)}
+                    onFav={() => toggleFavorite(car.id)}
+                  />
+                ))}
               </ScrollView>
             ) : (
-              <Text style={styles.emptyText}>
-                S'ka makina ende. Shto makina ne databaze.
-              </Text>
+              <Text style={styles.emptyText}>S'ka makina ende.</Text>
             )}
           </View>
 
@@ -279,24 +306,19 @@ const HomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
               {nearbyCars.map((car) => {
-                const img = car.primary_image || car.image || fallbackImg;
-                const displayName =
-                  `${car.brand_name || ""} ${car.model || ""}`.trim();
+                const img = car.primary_image || fallbackImg;
                 return (
                   <TouchableOpacity
                     key={car.id}
                     style={styles.nearbyCard}
                     activeOpacity={0.85}
-                    onPress={() =>
-                      navigation.navigate("CarDetail", {
-                        car: { ...car, name: displayName, image: img },
-                      })
-                    }
+                    onPress={() => openCar(car)}
                   >
                     <Image
                       source={{ uri: img }}
                       style={styles.nearbyImage}
                       resizeMode="cover"
+                      fadeDuration={0}
                     />
                   </TouchableOpacity>
                 );

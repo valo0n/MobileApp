@@ -53,6 +53,7 @@ export const ChatService = {
 // ── Notification Service ──
 export const NotificationService = {
   getAll: (unread = false) => api.get("/notifications", { params: { unread } }),
+  getCount: () => api.get("/notifications/count"),
   markAllRead: () => api.put("/notifications/read-all"),
 };
 

@@ -10,7 +10,9 @@ class CarModel extends BaseModel {
     const rows = await this.rawQuery(
       `SELECT c.*, cb.name as brand_name, cb.logo_url as brand_logo,
               cc.name as category_name, co.business_name as owner_name,
-              u.first_name as owner_first_name, u.last_name as owner_last_name,
+              co.rating as owner_rating,
+              u.id as owner_user_id, u.first_name as owner_first_name,
+              u.last_name as owner_last_name, u.avatar_url as owner_avatar,
               (SELECT image_url FROM car_images WHERE car_id = c.id AND is_primary = TRUE LIMIT 1) as primary_image
        FROM cars c
        JOIN car_brands cb ON c.brand_id = cb.id

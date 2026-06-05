@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import {
@@ -17,6 +18,7 @@ import {
   SearchIcon,
   StarIcon,
 } from "../../components/common/Icons";
+import { ReviewService } from "../../services";
 
 const ArrowRight = ({ color = "#fff" }) => (
   <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -30,51 +32,61 @@ const ArrowRight = ({ color = "#fff" }) => (
   </Svg>
 );
 
-const REVIEWS = [
-  {
-    id: 1,
-    name: "Mr. Jack",
-    stars: 5,
-    when: "Today",
-    avatar: "https://i.pravatar.cc/100?img=12",
-    text: "The rental car was clean, reliable, and the service was quick and efficient. Overall, the experience was hassle-free and enjoyable.",
-  },
-  {
-    id: 2,
-    name: "Robert",
-    stars: 5,
-    when: "Yesterday",
-    avatar: "https://i.pravatar.cc/100?img=13",
-    text: "The rental car was clean, reliable, and the service was quick and efficient. Overall, the experience was hassle-free and enjoyable.",
-  },
-  {
-    id: 3,
-    name: "Juliea",
-    stars: 5,
-    when: "2 Weekes ago",
-    avatar: "https://i.pravatar.cc/100?img=45",
-    text: "The rental car was clean, reliable, and the service was quick and efficient. Overall, the experience was hassle-free and enjoyable.",
-  },
-  {
-    id: 4,
-    name: "Mr. Jon",
-    stars: 5,
-    when: "3 Weekes ago",
-    avatar: "https://i.pravatar.cc/100?img=33",
-    text: "The rental car was clean, reliable, and the service was quick and efficient. Overall, the experience was hassle-free and enjoyable.",
-  },
-  {
-    id: 5,
-    name: "Hanrick",
-    stars: 3,
-    when: "3 Weekes ago",
-    avatar: "https://i.pravatar.cc/100?img=15",
-    text: "The rental car was clean, reliable, and the service was quick and efficient. Overall, the experience was hassle-free and enjoyable.",
-  },
-];
+const FALLBACK_AVATAR = "https://i.pravatar.cc/100?img=8";
+
+const timeAgo = (d) => {
+  if (!d) return "";
+  const diff = Date.now() - new Date(d).getTime();
+  const day = Math.floor(diff / 86400000);
+  if (day <= 0) return "Today";
+  if (day === 1) return "Yesterday";
+  if (day < 7) return `${day} days ago`;
+  if (day < 30) return `${Math.floor(day / 7)} week(s) ago`;
+  return new Date(d).toLocaleDateString();
+};
 
 const ReviewsScreen = ({ navigation, route }) => {
+  const car = route.params?.car;
+  const carId = car?.id;
+
   const [search, setSearch] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [stats, setStats] = useState({ avg_rating: 0, total_reviews: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      if (!carId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await ReviewService.getByCar(carId);
+        if (!active) return;
+        setReviews(res.data?.reviews || []);
+        setStats(res.data?.stats || { avg_rating: 0, total_reviews: 0 });
+      } catch (e) {
+        if (active) setReviews([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [carId]);
+
+  const avg = parseFloat(stats?.avg_rating || 0);
+  const total = stats?.total_reviews || 0;
+
+  const filtered = reviews.filter((r) => {
+    const name = `${r.first_name || ""} ${r.last_name || ""}`.toLowerCase();
+    const text = (r.comment || "").toLowerCase();
+    const q = search.toLowerCase();
+    return name.includes(q) || text.includes(q);
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -101,7 +113,11 @@ const ReviewsScreen = ({ navigation, route }) => {
         {/* Rating header */}
         <View style={styles.ratingHead}>
           <StarIcon size={22} color="#FF9500" />
-          <Text style={styles.ratingHeadText}>5.0 Reviews (125)</Text>
+          <Text style={styles.ratingHeadText}>
+            {total > 0
+              ? `${avg.toFixed(1)} Reviews (${total})`
+              : "No reviews yet"}
+          </Text>
         </View>
 
         {/* Search */}
@@ -116,29 +132,54 @@ const ReviewsScreen = ({ navigation, route }) => {
           />
         </View>
 
-        {/* Reviews */}
-        {REVIEWS.map((r) => (
-          <View key={r.id} style={styles.reviewCard}>
-            <View style={styles.reviewHead}>
-              <Image source={{ uri: r.avatar }} style={styles.avatar} />
-              <Text style={styles.name}>{r.name}</Text>
-              <Text style={styles.when}>{r.when}</Text>
-            </View>
-
-            <View style={styles.starsRow}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <View key={s} style={{ marginRight: 2 }}>
-                  <StarIcon
-                    size={16}
-                    color={s <= r.stars ? "#FF9500" : "#E5E7EB"}
-                  />
-                </View>
-              ))}
-            </View>
-
-            <Text style={styles.reviewText}>{r.text}</Text>
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color="#111"
+            style={{ marginTop: 40 }}
+          />
+        ) : filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>💬</Text>
+            <Text style={styles.emptyTitle}>No reviews yet</Text>
+            <Text style={styles.emptySub}>
+              Be the first to rent and review this car.
+            </Text>
           </View>
-        ))}
+        ) : (
+          filtered.map((r) => {
+            const name =
+              `${r.first_name || ""} ${r.last_name || ""}`.trim() || "User";
+            const stars = Math.round(r.rating || 0);
+            return (
+              <View key={r.id} style={styles.reviewCard}>
+                <View style={styles.reviewHead}>
+                  <Image
+                    source={{ uri: r.avatar_url || FALLBACK_AVATAR }}
+                    style={styles.avatar}
+                  />
+                  <Text style={styles.name}>{name}</Text>
+                  <Text style={styles.when}>{timeAgo(r.created_at)}</Text>
+                </View>
+
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <View key={s} style={{ marginRight: 2 }}>
+                      <StarIcon
+                        size={16}
+                        color={s <= stars ? "#FF9500" : "#E5E7EB"}
+                      />
+                    </View>
+                  ))}
+                </View>
+
+                {!!r.comment && (
+                  <Text style={styles.reviewText}>{r.comment}</Text>
+                )}
+              </View>
+            );
+          })
+        )}
       </ScrollView>
 
       {/* Book Now */}
@@ -146,9 +187,7 @@ const ReviewsScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={styles.bookBtn}
           activeOpacity={0.85}
-          onPress={() =>
-            navigation.navigate("Booking", { car: route.params?.car })
-          }
+          onPress={() => navigation.navigate("Booking", { car })}
         >
           <Text style={styles.bookBtnText}>Book Now</Text>
           <View style={{ marginLeft: 8 }}>
@@ -217,6 +256,15 @@ const styles = StyleSheet.create({
   when: { fontSize: 12, color: "#9CA3AF" },
   starsRow: { flexDirection: "row", marginBottom: 8 },
   reviewText: { fontSize: 12, color: "#6B7280", lineHeight: 18 },
+  empty: { alignItems: "center", paddingTop: 50, paddingHorizontal: 30 },
+  emptyEmoji: { fontSize: 40, marginBottom: 10 },
+  emptyTitle: { fontSize: 17, fontWeight: "700", color: "#111" },
+  emptySub: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginTop: 6,
+  },
   footer: {
     position: "absolute",
     bottom: 0,

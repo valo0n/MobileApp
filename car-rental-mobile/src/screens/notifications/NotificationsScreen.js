@@ -252,11 +252,10 @@ const NotificationsScreen = ({ navigation }) => {
         }));
         setNotifications(mapped);
       } else {
-        setNotifications(MOCK);
+        setNotifications([]);
       }
     } catch (e) {
-      // Nese backend nuk pergjigjet, perdor mock
-      setNotifications(MOCK);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -303,7 +302,10 @@ const NotificationsScreen = ({ navigation }) => {
     );
     setModalVisible(false);
     exitSelectMode();
-    // TODO: thirr backend delete per cdo id kur te kete endpoint
+    // Fshij edhe ne backend
+    idsToDelete.forEach((id) => {
+      NotificationService.remove(id).catch(() => {});
+    });
   };
 
   const renderNotification = (n) => {
@@ -366,12 +368,22 @@ const NotificationsScreen = ({ navigation }) => {
               <Text style={styles.selectAllText}>All</Text>
               <Text style={styles.selectedCount}>{selectedCount} Selected</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => selectedCount > 0 && setModalVisible(true)}
-            >
-              <TrashIcon color="#111" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                style={{ paddingHorizontal: 12, paddingVertical: 8 }}
+                onPress={exitSelectMode}
+              >
+                <Text style={{ color: "#2563EB", fontWeight: "600" }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => selectedCount > 0 && setModalVisible(true)}
+              >
+                <TrashIcon color="#111" />
+              </TouchableOpacity>
+            </View>
           </>
         ) : (
           <>

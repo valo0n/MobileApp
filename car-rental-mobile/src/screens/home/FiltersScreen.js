@@ -228,7 +228,10 @@ const FiltersScreen = ({ navigation }) => {
 
   // Apliko filtrat — cojm te Search me filtrat e zgjedhur
   const applyFilters = () => {
-    navigation.navigate("Search", { filters: buildFilters() });
+    navigation.navigate("MainTabs", {
+      screen: "Search",
+      params: { filters: buildFilters() },
+    });
   };
 
   return (

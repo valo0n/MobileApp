@@ -39,4 +39,18 @@ router.put("/read-all", authenticate, async (req, res) => {
   }
 });
 
+// DELETE /api/notifications/:id — fshij nje njoftim
+router.delete("/:id", authenticate, async (req, res) => {
+  try {
+    const notif = await NotificationModel.findById(req.params.id);
+    if (!notif || notif.user_id !== req.userId) {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+    await NotificationModel.delete(req.params.id);
+    res.json({ success: true, message: "Deleted" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = router;

@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { BackIcon, MoreIcon } from "../../components/common/Icons";
-import { ChatService } from "../../services";
+import { ChatService, AuthService } from "../../services";
 
 const SendIcon = ({ color = "#fff" }) => (
   <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -72,10 +72,13 @@ const ChatScreen = ({ navigation, route }) => {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
-  const myId = 99; // TODO: merr nga auth — id e user-it te kycur
+  const [myId, setMyId] = useState(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
+    AuthService.getProfile()
+      .then((res) => setMyId(res.data?.id))
+      .catch(() => {});
     loadMessages();
   }, []);
 

@@ -55,6 +55,7 @@ export const NotificationService = {
   getAll: (unread = false) => api.get("/notifications", { params: { unread } }),
   getCount: () => api.get("/notifications/count"),
   markAllRead: () => api.put("/notifications/read-all"),
+  remove: (id) => api.delete(`/notifications/${id}`),
 };
 
 // ── Favorite Service ──
@@ -67,10 +68,4 @@ export const FavoriteService = {
 export const PromotionService = {
   getAll: () => api.get("/promotions"),
   validate: (code) => api.post("/promotions/validate", { code }),
-};
-
-// ── Owner / Partner Service ──
-export const OwnerService = {
-  getMine: () => api.get("/owners/me"),
-  register: (data) => api.post("/owners/register", data),
 };

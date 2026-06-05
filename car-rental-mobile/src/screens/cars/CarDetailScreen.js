@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
   HeartIcon,
   StarIcon,
 } from "../../components/common/Icons";
+import { FavoriteService, ReviewService, CarService } from "../../services";
 
 // ── Mini feature icons ──
 const SeatIconSm = ({ color = "#111" }) => (
@@ -169,6 +170,38 @@ const CarDetailScreen = ({ navigation, route }) => {
       "https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80",
   };
   const [favorite, setFavorite] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [stats, setStats] = useState({ avg_rating: 0, total_reviews: 0 });
+  const [detail, setDetail] = useState(null);
+
+  useEffect(() => {
+    if (!car.id) return;
+    CarService.getById(car.id)
+      .then((res) => setDetail(res.data))
+      .catch(() => {});
+    ReviewService.getByCar(car.id)
+      .then((res) => {
+        setReviews(res.data?.reviews || []);
+        setStats(res.data?.stats || { avg_rating: 0, total_reviews: 0 });
+      })
+      .catch(() => {});
+  }, [car.id]);
+
+  const toggleFavorite = async () => {
+    setFavorite((v) => !v);
+    try {
+      await FavoriteService.toggle(car.id);
+    } catch (e) {
+      setFavorite((v) => !v);
+    }
+  };
+
+  const ownerName =
+    detail?.owner_name ||
+    `${detail?.owner_first_name || ""} ${detail?.owner_last_name || ""}`.trim() ||
+    "Car Owner";
+  const ownerAvatar =
+    detail?.owner_avatar || "https://i.pravatar.cc/100?img=47";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -199,10 +232,7 @@ const CarDetailScreen = ({ navigation, route }) => {
             style={styles.carImage}
             resizeMode="contain"
           />
-          <TouchableOpacity
-            style={styles.favBtn}
-            onPress={() => setFavorite(!favorite)}
-          >
+          <TouchableOpacity style={styles.favBtn} onPress={toggleFavorite}>
             <HeartIcon size={18} color="#111" filled={favorite} />
           </TouchableOpacity>
           <View style={styles.dots}>
@@ -222,10 +252,18 @@ const CarDetailScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.ratingBox}>
             <View style={styles.ratingRow}>
-              <Text style={styles.ratingText}>5.0</Text>
+              <Text style={styles.ratingText}>
+                {stats.avg_rating
+                  ? parseFloat(stats.avg_rating).toFixed(1)
+                  : car.average_rating
+                    ? parseFloat(car.average_rating).toFixed(1)
+                    : "New"}
+              </Text>
               <StarIcon size={16} color="#FF9500" />
             </View>
-            <Text style={styles.reviewsText}>(100+Reviews)</Text>
+            <Text style={styles.reviewsText}>
+              ({stats.total_reviews || 0} Reviews)
+            </Text>
           </View>
         </View>
 
@@ -233,12 +271,9 @@ const CarDetailScreen = ({ navigation, route }) => {
 
         {/* Owner */}
         <View style={styles.ownerRow}>
-          <Image
-            source={{ uri: "https://i.pravatar.cc/100?img=47" }}
-            style={styles.ownerAvatar}
-          />
+          <Image source={{ uri: ownerAvatar }} style={styles.ownerAvatar} />
           <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
-            <Text style={styles.ownerName}>Hela Quintin</Text>
+            <Text style={styles.ownerName}>{ownerName}</Text>
             <View style={{ marginLeft: 4 }}>
               <VerifiedIcon size={14} />
             </View>
@@ -249,7 +284,12 @@ const CarDetailScreen = ({ navigation, route }) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.circleBtn, { marginLeft: 8 }]}
-              onPress={() => navigation.navigate("ChatConversation")}
+              onPress={() =>
+                navigation.navigate("ChatConversation", {
+                  name: ownerName,
+                  carId: car.id,
+                })
+              }
             >
               <ChatIcon color="#111" />
             </TouchableOpacity>
@@ -275,35 +315,54 @@ const CarDetailScreen = ({ navigation, route }) => {
         {/* Reviews preview */}
         <View style={styles.section}>
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Review (125)</Text>
+            <Text style={styles.sectionTitle}>
+              Review ({stats.total_reviews || 0})
+            </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate("Reviews", { car })}
             >
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {PREVIEW_REVIEWS.map((r) => (
-              <View key={r.id} style={styles.reviewCard}>
-                <View style={styles.reviewHead}>
-                  <Image
-                    source={{ uri: r.avatar }}
-                    style={styles.reviewAvatar}
-                  />
-                  <Text style={styles.reviewerName}>{r.name}</Text>
-                  <View style={styles.reviewRating}>
-                    <Text style={styles.reviewerRating}>
-                      {r.rating.toFixed(1)}
+          {reviews.length === 0 ? (
+            <Text
+              style={{
+                color: "#9CA3AF",
+                paddingHorizontal: 20,
+                paddingBottom: 10,
+              }}
+            >
+              No reviews yet.
+            </Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {reviews.slice(0, 6).map((r) => (
+                <View key={r.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHead}>
+                    <Image
+                      source={{
+                        uri: r.avatar_url || "https://i.pravatar.cc/100?img=8",
+                      }}
+                      style={styles.reviewAvatar}
+                    />
+                    <Text style={styles.reviewerName}>
+                      {`${r.first_name || ""} ${r.last_name || ""}`.trim() ||
+                        "User"}
                     </Text>
-                    <StarIcon size={12} color="#FF9500" />
+                    <View style={styles.reviewRating}>
+                      <Text style={styles.reviewerRating}>
+                        {parseFloat(r.rating || 0).toFixed(1)}
+                      </Text>
+                      <StarIcon size={12} color="#FF9500" />
+                    </View>
                   </View>
+                  <Text style={styles.reviewText} numberOfLines={2}>
+                    {r.comment || ""}
+                  </Text>
                 </View>
-                <Text style={styles.reviewText} numberOfLines={2}>
-                  {r.text}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
 

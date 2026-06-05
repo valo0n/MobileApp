@@ -37,9 +37,9 @@ const LoginScreen = ({ navigation }) => {
       const isAdmin = roles.includes("admin");
 
       if (isAdmin) {
-        navigation.replace("AdminDashboard");
+        navigation.reset({ index: 0, routes: [{ name: "AdminDashboard" }] });
       } else {
-        navigation.replace("MainTabs");
+        navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] });
       }
     } catch (err) {
       Alert.alert("Login Failed", err.message || "Invalid credentials");

@@ -52,17 +52,6 @@ import {
   UserIcon,
 } from "../components/common/Icons";
 
-import PartnerWelcomeScreen from "../screens/partner/PartnerWelcomeScreen";
-import PartnerRegisterScreen from "../screens/partner/PartnerRegisterScreen";
-import {
-  SettingsScreen,
-  LanguagesScreen,
-  PrivacyPolicyScreen,
-  HelpSupportScreen,
-} from "../screens/settings/SettingsScreens";
-
-import FavoritesScreen from "../screens/favorites/FavoritesScreen";
-import MyBookingsScreen from "../screens/bookings/MyBookingsScreen";
 // ── Placeholder per screens qe ende s'jane krijuar ──
 const Placeholder = ({ route }) => (
   <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -136,10 +125,18 @@ const AppNavigator = () => (
       <Stack.Screen name="Register" component={RegisterScreen} />
 
       {/* Main (customer / car owner) */}
-      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabs}
+        options={{ gestureEnabled: false }}
+      />
 
       {/* Admin */}
-      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{ gestureEnabled: false }}
+      />
 
       {/* Modal / Detail */}
       <Stack.Screen
@@ -154,14 +151,8 @@ const AppNavigator = () => (
       <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
       <Stack.Screen name="ChatConversation" component={ChatScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
-      <Stack.Screen name="Favorites" component={FavoritesScreen} />
-      <Stack.Screen name="PartnerWelcome" component={PartnerWelcomeScreen} />
-      <Stack.Screen name="PartnerRegister" component={PartnerRegisterScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="Languages" component={LanguagesScreen} />
-      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-      <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="MyBookings" component={Placeholder} />
+      <Stack.Screen name="Favorites" component={Placeholder} />
     </Stack.Navigator>
   </NavigationContainer>
 );

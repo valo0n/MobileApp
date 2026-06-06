@@ -14,6 +14,7 @@ import {
 import Svg, { Path, Rect, Circle } from "react-native-svg";
 import { BackIcon, MoreIcon } from "../../components/common/Icons";
 import { BookingService, PaymentService } from "../../services";
+import { CardField, useStripe } from "@stripe/stripe-react-native";
 
 // ── Icons ──
 const CardIcon = ({ color = "#111" }) => (
@@ -83,19 +84,24 @@ const PaymentScreen = ({ navigation, route }) => {
   const [cvv, setCvv] = useState("");
   const [holder, setHolder] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cardComplete, setCardComplete] = useState(false);
+  const { confirmPayment } = useStripe();
+
+  // Formato numrin: 4242 4242 4242 4242
+  const formatCardNumber = (t) => {
+    const digits = t.replace(/\D/g, "").slice(0, 16);
+    return digits.replace(/(.{4})/g, "$1 ").trim();
+  };
+  // Formato daten: MM/YY
+  const formatExpiry = (t) => {
+    const d = t.replace(/\D/g, "").slice(0, 4);
+    if (d.length <= 2) return d;
+    return `${d.slice(0, 2)}/${d.slice(2)}`;
+  };
 
   const handlePay = async () => {
-    // Validim per karten
-    if (method === "credit_card") {
-      if (!cardNumber || !expiry || !cvv || !holder) {
-        Alert.alert("Gabim", "Plotesoni te gjitha fushat e kartes");
-        return;
-      }
-    }
-
     setLoading(true);
     try {
-      // 1) Krijo booking-un ne backend
       const bookingPayload = {
         car_id: car.id || 1,
         pickup_datetime:
@@ -114,26 +120,68 @@ const PaymentScreen = ({ navigation, route }) => {
           bookingData.pickup_address || "Shore Dr, Chicago 0062 Usa",
       };
 
-      const booking = await BookingService.create(bookingPayload);
-      const bookingId = booking.data?.id;
-
-      // 2) Krijo payment record
-      if (bookingId) {
+      // ── CASH → krijo booking (pending) ──
+      if (method === "cash") {
+        const booking = await BookingService.create({
+          ...bookingPayload,
+          status: "pending",
+        });
+        const bookingId = booking.data?.id;
+        const bookingRef =
+          booking.data?.booking_ref || "BK-" + Date.now().toString().slice(-8);
         await PaymentService.create({
           booking_id: bookingId,
-          amount: amount,
-          status: method === "cash" ? "pending" : "completed",
-          transaction_id: "TXN-" + Date.now(),
+          amount,
+          status: "pending",
+          transaction_id: "CASH-" + Date.now(),
         });
+        navigation.replace("PaymentSuccess", { car, amount, bookingRef });
+        return;
       }
 
-      // 3) Cojm te Confirmation
-      navigation.replace("PaymentSuccess", {
-        car,
-        amount,
-        bookingRef:
-          booking.data?.booking_ref || "BK-" + Date.now().toString().slice(-8),
+      // ── KARTE → fillimisht pagesa, booking-u VETEM pas suksesit ──
+      if (!cardComplete) {
+        Alert.alert("Gabim", "Plotesoni te dhenat e kartes");
+        setLoading(false);
+        return;
+      }
+
+      // 1) Krijo PaymentIntent vetem me shumen (pa booking ende)
+      const intentRes = await PaymentService.createIntent(amount);
+      const { clientSecret } = intentRes.data || {};
+      if (!clientSecret) throw new Error("Could not start payment");
+
+      // 2) Konfirmo karten
+      const { paymentIntent, error } = await confirmPayment(clientSecret, {
+        paymentMethodType: "Card",
       });
+
+      // 3) Nese refuzohet/deshton → NUK krijohet booking fare
+      if (error) {
+        Alert.alert("Pagesa u refuzua", error.message);
+        return;
+      }
+      if (!paymentIntent || paymentIntent.status !== "Succeeded") {
+        Alert.alert("Pagesa", "Pagesa nuk u krye. Provoni perseri.");
+        return;
+      }
+
+      // 4) Pagesa kaloi → tani krijo booking-un (confirmed) + regjistro pagesen
+      const booking = await BookingService.create({
+        ...bookingPayload,
+        status: "confirmed",
+      });
+      const bookingId = booking.data?.id;
+      const bookingRef =
+        booking.data?.booking_ref || "BK-" + Date.now().toString().slice(-8);
+      await PaymentService.create({
+        booking_id: bookingId,
+        amount,
+        status: "completed",
+        transaction_id: paymentIntent.id,
+      });
+
+      navigation.replace("PaymentSuccess", { car, amount, bookingRef });
     } catch (err) {
       Alert.alert("Pagesa Deshtoi", err.message || "Provoni perseri");
     } finally {
@@ -214,54 +262,27 @@ const PaymentScreen = ({ navigation, route }) => {
           })}
         </View>
 
-        {/* Card form */}
+        {/* Forma e kartes BRENDA app-it (Stripe CardField) */}
         {method === "credit_card" && (
           <View style={styles.section}>
-            <Text style={styles.label}>Detajet e Kartes</Text>
-            <View style={styles.inputBox}>
-              <TextInput
-                style={styles.input}
-                placeholder="Numri i Kartes"
-                placeholderTextColor="#9CA3AF"
-                value={cardNumber}
-                onChangeText={setCardNumber}
-                keyboardType="number-pad"
-                maxLength={19}
-              />
-            </View>
-            <View style={styles.inputBox}>
-              <TextInput
-                style={styles.input}
-                placeholder="Emri ne Karte"
-                placeholderTextColor="#9CA3AF"
-                value={holder}
-                onChangeText={setHolder}
-              />
-            </View>
-            <View style={styles.row}>
-              <View style={[styles.inputBox, { flex: 1, marginRight: 8 }]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="MM/YY"
-                  placeholderTextColor="#9CA3AF"
-                  value={expiry}
-                  onChangeText={setExpiry}
-                  maxLength={5}
-                />
-              </View>
-              <View style={[styles.inputBox, { flex: 1, marginLeft: 8 }]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="CVV"
-                  placeholderTextColor="#9CA3AF"
-                  value={cvv}
-                  onChangeText={setCvv}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  secureTextEntry
-                />
-              </View>
-            </View>
+            <Text style={styles.label}>Detajet e Kartës</Text>
+            <CardField
+              postalCodeEnabled={false}
+              placeholders={{ number: "4242 4242 4242 4242" }}
+              cardStyle={{
+                backgroundColor: "#FFFFFF",
+                textColor: "#111111",
+                placeholderColor: "#9CA3AF",
+                borderRadius: 12,
+                fontSize: 15,
+              }}
+              style={{ width: "100%", height: 52, marginTop: 4 }}
+              onCardChange={(d) => setCardComplete(d.complete)}
+            />
+            <Text style={{ color: "#9CA3AF", fontSize: 12, marginTop: 8 }}>
+              Kartë testimi: 4242 4242 4242 4242 — datë në të ardhmen (12/34),
+              çdo CVC.
+            </Text>
           </View>
         )}
 

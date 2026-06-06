@@ -34,6 +34,15 @@ export const BookingService = {
 export const PaymentService = {
   getByBooking: (bookingId) => api.get(`/payments/booking/${bookingId}`),
   create: (data) => api.post("/payments", data),
+  checkout: (bookingId) =>
+    api.post("/payments/checkout", { booking_id: bookingId }),
+  confirm: (sessionId) =>
+    api.post("/payments/confirm", { session_id: sessionId }),
+  createIntent: (amount) => api.post("/payments/intent", { amount }),
+  confirmIntent: (paymentIntentId) =>
+    api.post("/payments/intent/confirm", {
+      payment_intent_id: paymentIntentId,
+    }),
 };
 
 // ── Review Service ──
@@ -48,6 +57,9 @@ export const ChatService = {
   getMessages: (convId) => api.get(`/chat/conversations/${convId}/messages`),
   sendMessage: (convId, content) =>
     api.post(`/chat/conversations/${convId}/messages`, { content }),
+  startConversation: (recipientId) =>
+    api.post("/chat/conversations/start", { recipient_id: recipientId }),
+  markRead: (convId) => api.put(`/chat/conversations/${convId}/read`),
 };
 
 // ── Notification Service ──

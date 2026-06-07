@@ -118,6 +118,37 @@ const BookingScreen = ({ navigation, route }) => {
   const [rentalTime, setRentalTime] = useState("Day");
   const [location, setLocation] = useState("Shore Dr, Chicago 0062 Usa");
 
+  // ── Cmimi real i vetures ──
+  const perDay = Number(car.price_per_day ?? car.daily_price ?? car.price ?? 0);
+  const perHour = Number(car.price_per_hour ?? (perDay ? perDay / 24 : 0));
+
+  // Data: sot → sot + 3 dite
+  const pickupDate = new Date();
+  const returnDate = new Date(Date.now() + 3 * 86400000);
+  const days = Math.max(1, Math.round((returnDate - pickupDate) / 86400000));
+
+  // Totali sipas llojit te qirase
+  let total;
+  let durationHours;
+  if (rentalTime === "Hour") {
+    total = perHour * 24 * days;
+    durationHours = days * 24;
+  } else if (rentalTime === "Weekly") {
+    total = perDay * 7;
+    durationHours = 168;
+  } else if (rentalTime === "Monthly") {
+    total = perDay * 30;
+    durationHours = 720;
+  } else {
+    total = perDay * days; // Day
+    durationHours = days * 24;
+  }
+  total = Math.round(total * 100) / 100;
+
+  const fmtDate = (d) =>
+    `${d.getDate()}/ ${d.toLocaleString("en-US", { month: "long" })} /${d.getFullYear()}`;
+  const toSql = (d) => d.toISOString().slice(0, 19).replace("T", " ");
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
@@ -273,7 +304,7 @@ const BookingScreen = ({ navigation, route }) => {
               <Text style={styles.dateLabel}>Pick up Date</Text>
               <View style={styles.dateValue}>
                 <CalendarSm color="#9CA3AF" />
-                <Text style={styles.dateText}>19/ January /2024</Text>
+                <Text style={styles.dateText}>{fmtDate(pickupDate)}</Text>
               </View>
             </View>
             <View style={styles.dateDivider} />
@@ -281,7 +312,7 @@ const BookingScreen = ({ navigation, route }) => {
               <Text style={styles.dateLabel}>Return Date</Text>
               <View style={styles.dateValue}>
                 <CalendarSm color="#9CA3AF" />
-                <Text style={styles.dateText}>22/ January /2024</Text>
+                <Text style={styles.dateText}>{fmtDate(returnDate)}</Text>
               </View>
             </View>
           </View>
@@ -307,9 +338,20 @@ const BookingScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={styles.payBtn}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate("Payment", { car })}
+          onPress={() =>
+            navigation.navigate("Payment", {
+              car,
+              amount: total,
+              bookingData: {
+                pickup_datetime: toSql(pickupDate),
+                dropoff_datetime: toSql(returnDate),
+                duration_hours: durationHours,
+                pickup_address: location,
+              },
+            })
+          }
         >
-          <Text style={styles.payAmount}>$1400</Text>
+          <Text style={styles.payAmount}>${total}</Text>
           <Text style={styles.payNowText}>Pay Now</Text>
         </TouchableOpacity>
       </View>

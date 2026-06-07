@@ -1,8 +1,10 @@
-const BaseModel = require('./Base.model');
+const BaseModel = require("./Base.model");
 
 // ── Payment Model ──
 class PaymentModel extends BaseModel {
-  constructor() { super('payments'); }
+  constructor() {
+    super("payments");
+  }
 
   async findByBooking(bookingId) {
     return this.rawQuery(
@@ -10,14 +12,16 @@ class PaymentModel extends BaseModel {
        FROM payments p
        LEFT JOIN payment_methods pm ON p.payment_method_id = pm.id
        WHERE p.booking_id = ?`,
-      [bookingId]
+      [bookingId],
     );
   }
 }
 
 // ── Review Model ──
 class ReviewModel extends BaseModel {
-  constructor() { super('reviews'); }
+  constructor() {
+    super("reviews");
+  }
 
   async findByCar(carId) {
     return this.rawQuery(
@@ -26,7 +30,7 @@ class ReviewModel extends BaseModel {
        JOIN users u ON r.reviewer_id = u.id
        WHERE r.car_id = ? AND r.is_visible = TRUE
        ORDER BY r.created_at DESC`,
-      [carId]
+      [carId],
     );
   }
 
@@ -34,7 +38,7 @@ class ReviewModel extends BaseModel {
     const rows = await this.rawQuery(
       `SELECT AVG(rating) as avg_rating, COUNT(*) as total_reviews
        FROM reviews WHERE car_id = ? AND is_visible = TRUE`,
-      [carId]
+      [carId],
     );
     return rows[0];
   }
@@ -42,12 +46,18 @@ class ReviewModel extends BaseModel {
 
 // ── Conversation Model ──
 class ConversationModel extends BaseModel {
-  constructor() { super('conversations'); }
+  constructor() {
+    super("conversations");
+  }
 
   async findByUser(userId) {
     return this.rawQuery(
       `SELECT c.*, m.content as last_message, m.created_at as last_message_at,
-              u.first_name, u.last_name, u.avatar_url
+              u.id as other_user_id, u.first_name, u.last_name, u.avatar_url,
+              (SELECT COUNT(*) FROM messages msg
+                 WHERE msg.conversation_id = c.id
+                   AND msg.sender_id != ?
+                   AND msg.is_read = FALSE) as unread
        FROM conversations c
        JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = ?
        JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id != ?
@@ -56,14 +66,44 @@ class ConversationModel extends BaseModel {
          SELECT id FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1
        )
        ORDER BY c.updated_at DESC`,
-      [userId, userId]
+      [userId, userId, userId],
+    );
+  }
+
+  // Gjej biseden ekzistuese mes dy userave, ose krijoje
+  async findOrCreateBetween(userId, otherUserId) {
+    const existing = await this.rawQuery(
+      `SELECT c.id FROM conversations c
+       JOIN conversation_participants p1 ON p1.conversation_id = c.id AND p1.user_id = ?
+       JOIN conversation_participants p2 ON p2.conversation_id = c.id AND p2.user_id = ?
+       LIMIT 1`,
+      [userId, otherUserId],
+    );
+    if (existing[0]) return existing[0].id;
+
+    const conv = await this.create({ booking_id: null });
+    await this.rawQuery(
+      `INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?), (?, ?)`,
+      [conv.id, userId, conv.id, otherUserId],
+    );
+    return conv.id;
+  }
+
+  // Shenoji si te lexuara mesazhet qe s'i ka derguar useri aktual
+  async markRead(conversationId, userId) {
+    await this.rawQuery(
+      `UPDATE messages SET is_read = TRUE, read_at = NOW()
+       WHERE conversation_id = ? AND sender_id != ? AND is_read = FALSE`,
+      [conversationId, userId],
     );
   }
 }
 
 // ── Message Model ──
 class MessageModel extends BaseModel {
-  constructor() { super('messages'); }
+  constructor() {
+    super("messages");
+  }
 
   async findByConversation(conversationId, limit = 50) {
     return this.rawQuery(
@@ -73,14 +113,16 @@ class MessageModel extends BaseModel {
        WHERE m.conversation_id = ?
        ORDER BY m.created_at ASC
        LIMIT ?`,
-      [conversationId, limit]
+      [conversationId, limit],
     );
   }
 }
 
 // ── Notification Model ──
 class NotificationModel extends BaseModel {
-  constructor() { super('notifications'); }
+  constructor() {
+    super("notifications");
+  }
 
   async findByUser(userId, unreadOnly = false) {
     let query = `SELECT * FROM notifications WHERE user_id = ?`;
@@ -92,14 +134,16 @@ class NotificationModel extends BaseModel {
   async markAllRead(userId) {
     return this.rawQuery(
       `UPDATE notifications SET is_read = TRUE, read_at = NOW() WHERE user_id = ? AND is_read = FALSE`,
-      [userId]
+      [userId],
     );
   }
 }
 
 // ── Favorite Model ──
 class FavoriteModel extends BaseModel {
-  constructor() { super('favorites'); }
+  constructor() {
+    super("favorites");
+  }
 
   async findByUser(userId) {
     return this.rawQuery(
@@ -111,7 +155,7 @@ class FavoriteModel extends BaseModel {
        LEFT JOIN car_images ci ON c.id = ci.car_id AND ci.is_primary = TRUE
        WHERE f.user_id = ?
        ORDER BY f.created_at DESC`,
-      [userId]
+      [userId],
     );
   }
 
@@ -119,16 +163,18 @@ class FavoriteModel extends BaseModel {
     const existing = await this.findOne({ user_id: userId, car_id: carId });
     if (existing) {
       await this.delete(existing.id);
-      return { action: 'removed' };
+      return { action: "removed" };
     }
     await this.create({ user_id: userId, car_id: carId });
-    return { action: 'added' };
+    return { action: "added" };
   }
 }
 
 // ── Promotion Model ──
 class PromotionModel extends BaseModel {
-  constructor() { super('promotions'); }
+  constructor() {
+    super("promotions");
+  }
 
   async findActiveByCode(code) {
     const rows = await this.rawQuery(
@@ -136,7 +182,7 @@ class PromotionModel extends BaseModel {
        WHERE code = ? AND is_active = TRUE
        AND start_date <= NOW() AND end_date >= NOW()
        AND (usage_limit IS NULL OR used_count < usage_limit)`,
-      [code]
+      [code],
     );
     return rows[0] || null;
   }

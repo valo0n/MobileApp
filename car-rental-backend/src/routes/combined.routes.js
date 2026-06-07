@@ -9,6 +9,17 @@ const {
   FavoriteModel,
   PromotionModel,
 } = require("../models/index");
+const BookingModel = require("../models/Booking.model");
+
+// Stripe (init i sigurt: nuk e rrezon serverin nese mungon pako/key)
+let stripe = null;
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+  }
+} catch (e) {
+  console.warn("Stripe not available:", e.message);
+}
 
 // ============================================================
 // PAYMENT ROUTES
@@ -28,6 +39,153 @@ paymentRouter.post("/", authenticate, async (req, res) => {
   try {
     const payment = await PaymentModel.create(req.body);
     res.status(201).json({ success: true, data: payment });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Krijo nje Stripe Checkout Session per nje booking
+paymentRouter.post("/checkout", authenticate, async (req, res) => {
+  try {
+    if (!stripe) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Stripe is not configured" });
+    }
+    const booking = await BookingModel.findById(req.body.booking_id);
+    if (!booking) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: (booking.currency || "usd").toLowerCase(),
+            product_data: {
+              name: `QENT car rental — ${booking.booking_ref}`,
+            },
+            unit_amount: Math.round(Number(booking.total_price) * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      success_url:
+        "https://example.com/success?session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "https://example.com/cancel",
+      metadata: {
+        booking_id: String(booking.id),
+        user_id: String(req.userId),
+      },
+    });
+
+    res.json({
+      success: true,
+      data: { url: session.url, sessionId: session.id },
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Konfirmo pagesen pas kthimit nga Stripe
+paymentRouter.post("/confirm", authenticate, async (req, res) => {
+  try {
+    if (!stripe) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Stripe is not configured" });
+    }
+    const session = await stripe.checkout.sessions.retrieve(
+      req.body.session_id,
+    );
+
+    if (session.payment_status === "paid") {
+      const bookingId = session.metadata.booking_id;
+      await PaymentModel.create({
+        booking_id: bookingId,
+        amount: session.amount_total / 100,
+        currency: (session.currency || "usd").toUpperCase(),
+        status: "completed",
+        transaction_id: session.payment_intent,
+        payment_date: new Date(),
+      });
+      await BookingModel.update(bookingId, { status: "confirmed" });
+      return res.json({
+        success: true,
+        data: { paid: true, booking_id: bookingId },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { paid: false, status: session.payment_status },
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ── PaymentSheet/CardField: krijo PaymentIntent vetem me shumen ──
+paymentRouter.post("/intent", authenticate, async (req, res) => {
+  try {
+    if (!stripe) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Stripe is not configured" });
+    }
+    const amount = Number(req.body.amount);
+    if (!amount || amount <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid amount" });
+    }
+    const intent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100),
+      currency: (req.body.currency || "usd").toLowerCase(),
+      automatic_payment_methods: { enabled: true },
+      metadata: { user_id: String(req.userId) },
+    });
+    res.json({
+      success: true,
+      data: {
+        clientSecret: intent.client_secret,
+        paymentIntentId: intent.id,
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ── Konfirmo PaymentIntent (regjistro pagesen + booking confirmed) ──
+paymentRouter.post("/intent/confirm", authenticate, async (req, res) => {
+  try {
+    if (!stripe) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Stripe is not configured" });
+    }
+    const intent = await stripe.paymentIntents.retrieve(
+      req.body.payment_intent_id,
+    );
+    if (intent.status === "succeeded") {
+      const bookingId = intent.metadata.booking_id;
+      await PaymentModel.create({
+        booking_id: bookingId,
+        amount: intent.amount / 100,
+        currency: (intent.currency || "usd").toUpperCase(),
+        status: "completed",
+        transaction_id: intent.id,
+        payment_date: new Date(),
+      });
+      await BookingModel.update(bookingId, { status: "confirmed" });
+      return res.json({ success: true, data: { paid: true } });
+    }
+    res.json({ success: true, data: { paid: false, status: intent.status } });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -106,6 +264,41 @@ chatRouter.post(
     }
   },
 );
+
+// Krijo ose merr nje bisede me nje user (recipient_id)
+chatRouter.post("/conversations/start", authenticate, async (req, res) => {
+  try {
+    const otherUserId = req.body.recipient_id;
+    if (!otherUserId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Recipient not found" });
+    }
+    if (Number(otherUserId) === Number(req.userId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "You cannot chat with yourself" });
+    }
+
+    const id = await ConversationModel.findOrCreateBetween(
+      req.userId,
+      otherUserId,
+    );
+    res.status(201).json({ success: true, data: { id } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Shenoji mesazhet e bisedes si te lexuara
+chatRouter.put("/conversations/:id/read", authenticate, async (req, res) => {
+  try {
+    await ConversationModel.markRead(req.params.id, req.userId);
+    res.json({ success: true, message: "Marked as read" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 // ============================================================
 // NOTIFICATION ROUTES

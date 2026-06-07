@@ -1,6 +1,28 @@
 {
-  "plugins": [
-    "expo-asset",
-    "expo-secure-store"
-  ]
+  "expo": {
+    "name": "QENT",
+    "slug": "car-rental-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "qent",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.qent.carrental"
+    },
+    "android": {
+      "package": "com.qent.carrental"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-secure-store",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "enableGooglePay": false
+        }
+      ],
+      "expo-web-browser"
+    ]
+  }
 }

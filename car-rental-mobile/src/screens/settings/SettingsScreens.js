@@ -83,14 +83,7 @@ export const SettingsScreen = ({ navigation }) => {
 // ============================================================
 export const LanguagesScreen = ({ navigation }) => {
   const [selected, setSelected] = useState("en");
-  const langs = [
-    { code: "en", label: "English" },
-    { code: "sq", label: "Shqip" },
-    { code: "de", label: "Deutsch" },
-    { code: "fr", label: "Français" },
-    { code: "es", label: "Español" },
-    { code: "tr", label: "Türkçe" },
-  ];
+  const langs = [{ code: "en", label: "English" }];
   return (
     <SafeAreaView style={s.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />

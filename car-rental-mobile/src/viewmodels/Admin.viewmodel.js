@@ -87,6 +87,48 @@ export const useAdminViewModel = () => {
     }
   };
 
+  // US-19: Aprovo / hiq aprovimin e licencës (is_verified)
+  const approveLicense = async (userId, verified = true) => {
+    try {
+      await api.put(`/users/${userId}`, { is_verified: verified });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId ? { ...u, is_verified: verified } : u,
+        ),
+      );
+      return true;
+    } catch (e) {
+      console.error("Approve license error:", e.message);
+      return false;
+    }
+  };
+
+  // Aktivizo / Çaktivizo perdoruesin
+  const toggleUserActive = async (userId, isActive) => {
+    try {
+      await api.put(`/users/${userId}`, { is_active: isActive });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_active: isActive } : u)),
+      );
+      return true;
+    } catch (e) {
+      console.error("Toggle user error:", e.message);
+      return false;
+    }
+  };
+
+  // Fshij perdoruesin
+  const deleteUser = async (userId) => {
+    try {
+      await api.delete(`/users/${userId}`);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      return true;
+    } catch (e) {
+      console.error("Delete user error:", e.message);
+      return false;
+    }
+  };
+
   return {
     stats,
     cars,
@@ -96,5 +138,8 @@ export const useAdminViewModel = () => {
     loadStats,
     deleteCar,
     updateBookingStatus,
+    approveLicense,
+    toggleUserActive,
+    deleteUser,
   };
 };

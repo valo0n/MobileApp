@@ -21,6 +21,16 @@ try {
   console.warn("Stripe not available:", e.message);
 }
 
+// Per faturen PDF + verifikim token-i ne URL
+const jwt = require("jsonwebtoken");
+const config = require("../config/app");
+let PDFDocument = null;
+try {
+  PDFDocument = require("pdfkit");
+} catch (e) {
+  console.warn("pdfkit not installed:", e.message);
+}
+
 // ============================================================
 // PAYMENT ROUTES
 // ============================================================
@@ -191,6 +201,136 @@ paymentRouter.post("/intent/confirm", authenticate, async (req, res) => {
   }
 });
 
+// ── Saved payment methods (US-14) ──
+paymentRouter.get("/methods", authenticate, async (req, res) => {
+  try {
+    const rows = await PaymentModel.rawQuery(
+      `SELECT id, type, card_brand, last_four, expiry_month, expiry_year, holder_name, is_default
+       FROM payment_methods WHERE user_id = ? ORDER BY created_at DESC`,
+      [req.userId],
+    );
+    res.json({ success: true, data: rows });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+paymentRouter.post("/methods", authenticate, async (req, res) => {
+  try {
+    const b = req.body;
+    const ins = await PaymentModel.rawQuery(
+      `INSERT INTO payment_methods
+        (user_id, type, card_brand, last_four, expiry_month, expiry_year, holder_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.userId,
+        b.type || "credit_card",
+        b.card_brand || null,
+        b.last_four || null,
+        b.expiry_month || null,
+        b.expiry_year || null,
+        b.holder_name || null,
+      ],
+    );
+    res.status(201).json({ success: true, data: { id: ins.insertId } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+paymentRouter.delete("/methods/:id", authenticate, async (req, res) => {
+  try {
+    await PaymentModel.rawQuery(
+      "DELETE FROM payment_methods WHERE id = ? AND user_id = ?",
+      [req.params.id, req.userId],
+    );
+    res.json({ success: true, message: "Deleted" });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// ── Fatura PDF (US-15 / KF-07) — hapet ne browser me token ne URL ──
+paymentRouter.get("/invoice/:bookingId", async (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).send("No token");
+    let userId;
+    try {
+      userId = jwt.verify(token, config.jwt.secret).userId;
+    } catch (_) {
+      return res.status(401).send("Invalid token");
+    }
+    if (!PDFDocument)
+      return res.status(500).send("PDF generator not available");
+
+    const b = await BookingModel.findWithDetails(req.params.bookingId);
+    if (!b) return res.status(404).send("Booking not found");
+    if (Number(b.user_id) !== Number(userId))
+      return res.status(403).send("Not authorized");
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="invoice-${b.booking_ref}.pdf"`,
+    );
+
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    doc.pipe(res);
+
+    doc.fontSize(24).fillColor("#111").text("QENT");
+    doc.fontSize(10).fillColor("#666").text("Car Rental — Faturë");
+    doc.moveDown();
+    doc.fontSize(12).fillColor("#111");
+    doc.text(`Numri i faturës: ${b.booking_ref}`);
+    doc.text(`Data: ${new Date().toLocaleDateString()}`);
+    doc.moveDown();
+
+    doc.fontSize(13).fillColor("#111").text("Klienti", { underline: true });
+    doc.fontSize(11).fillColor("#333");
+    doc.text(`${b.first_name || ""} ${b.last_name || ""}`.trim());
+    if (b.email) doc.text(b.email);
+    if (b.phone) doc.text(b.phone);
+    doc.moveDown();
+
+    doc
+      .fontSize(13)
+      .fillColor("#111")
+      .text("Detajet e qirasë", { underline: true });
+    doc.fontSize(11).fillColor("#333");
+    doc.text(`Makina: ${b.brand_name || ""} ${b.car_model || ""}`.trim());
+    doc.text(`Marrja: ${b.pickup_datetime}`);
+    doc.text(`Kthimi: ${b.dropoff_datetime}`);
+    if (b.pickup_address) doc.text(`Lokacioni: ${b.pickup_address}`);
+    doc.moveDown();
+
+    const base = Number(b.base_price || 0);
+    const fee = Number(b.service_fee || 0);
+    const vat = Number(b.insurance_fee || 0);
+    const total = Number(b.total_price || 0);
+    doc.fontSize(13).fillColor("#111").text("Çmimi", { underline: true });
+    doc.fontSize(11).fillColor("#333");
+    doc.text(`Baza:            $${base.toFixed(2)}`);
+    doc.text(`Komisioni (10%): $${fee.toFixed(2)}`);
+    doc.text(`TVSH (18%):      $${vat.toFixed(2)}`);
+    doc
+      .fontSize(13)
+      .fillColor("#111")
+      .text(`TOTALI:          $${total.toFixed(2)}`);
+    doc.moveDown();
+    doc.fontSize(10).fillColor("#666").text(`Statusi: ${b.status}`);
+    doc.moveDown(2);
+    doc
+      .fontSize(9)
+      .fillColor("#999")
+      .text("Faleminderit që zgjodhët QENT. (Pagesë test — projekt akademik)");
+
+    doc.end();
+  } catch (e) {
+    res.status(500).send("Invoice error: " + e.message);
+  }
+});
+
 // ============================================================
 // REVIEW ROUTES
 // ============================================================
@@ -208,12 +348,42 @@ reviewRouter.get("/car/:carId", async (req, res) => {
 
 reviewRouter.post("/", authenticate, async (req, res) => {
   try {
+    const { car_id, booking_id, rating, comment } = req.body;
+    if (!car_id || !booking_id || !rating) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "car_id, booking_id, rating kërkohen",
+        });
+    }
+    // owner_id merret nga vetura
+    const carRows = await ReviewModel.rawQuery(
+      "SELECT owner_id FROM cars WHERE id = ? LIMIT 1",
+      [car_id],
+    );
+    const ownerId = carRows[0]?.owner_id;
+    if (!ownerId) {
+      return res.status(404).json({ success: false, message: "Car not found" });
+    }
     const review = await ReviewModel.create({
-      ...req.body,
+      booking_id,
       reviewer_id: req.userId,
+      car_id,
+      owner_id: ownerId,
+      rating,
+      comment: comment || null,
     });
     res.status(201).json({ success: true, data: review });
   } catch (e) {
+    if (String(e.message).toLowerCase().includes("duplicate")) {
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: "E ke vlerësuar tashmë këtë rezervim",
+        });
+    }
     res.status(500).json({ success: false, message: e.message });
   }
 });
@@ -390,6 +560,120 @@ promotionRouter.post(
   },
 );
 
+// ============================================================
+// OWNER / PARTNER ROUTES
+// ============================================================
+const ownerRouter = express.Router();
+
+// Behu QENT partner: krijo car_owner (nese s'eshte) + listo veturen
+ownerRouter.post("/register", authenticate, async (req, res) => {
+  try {
+    const b = req.body;
+
+    // 1) Sigurohu qe useri eshte car_owner
+    const existing = await PaymentModel.rawQuery(
+      "SELECT id FROM car_owners WHERE user_id = ? LIMIT 1",
+      [req.userId],
+    );
+    let ownerId = existing[0]?.id;
+    if (!ownerId) {
+      const ins = await PaymentModel.rawQuery(
+        "INSERT INTO car_owners (user_id, business_name, verification_status) VALUES (?, ?, 'approved')",
+        [req.userId, b.full_name || null],
+      );
+      ownerId = ins.insertId;
+      await PaymentModel.rawQuery(
+        "UPDATE users SET role = 'car_owner' WHERE id = ?",
+        [req.userId],
+      ).catch(() => {});
+    }
+
+    // 2) Resolvo category_id nga emri (ose merr te paren)
+    let categoryId = null;
+    if (b.category) {
+      const cat = await PaymentModel.rawQuery(
+        "SELECT id FROM car_categories WHERE name = ? LIMIT 1",
+        [b.category],
+      );
+      categoryId = cat[0]?.id;
+    }
+    if (!categoryId) {
+      const anyCat = await PaymentModel.rawQuery(
+        "SELECT id FROM car_categories ORDER BY sort_order LIMIT 1",
+      );
+      categoryId = anyCat[0]?.id || 1;
+    }
+
+    // 3) Normalizo fuel_type ne enum-in e lejuar
+    const fuel = String(b.fuel_type || "petrol").toLowerCase();
+    const validFuel = ["petrol", "diesel", "electric", "hybrid"].includes(fuel)
+      ? fuel
+      : "petrol";
+
+    const pricePerDay = Number(b.price_per_day) || 0;
+    const pricePerHour = Math.max(
+      1,
+      Math.round((pricePerDay / 24) * 100) / 100,
+    );
+
+    // 4) Krijo veturen
+    const carRes = await PaymentModel.rawQuery(
+      `INSERT INTO cars
+         (owner_id, brand_id, category_id, model, year, color, license_plate,
+          fuel_type, price_per_hour, price_per_day, description, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available')`,
+      [
+        ownerId,
+        b.brand_id,
+        categoryId,
+        b.model,
+        b.year,
+        b.color || null,
+        b.license_plate,
+        validFuel,
+        pricePerHour,
+        pricePerDay,
+        b.description || null,
+      ],
+    );
+    const carId = carRes.insertId;
+
+    // 5) Imazhet (opsionale)
+    if (Array.isArray(b.images)) {
+      for (let i = 0; i < b.images.length; i++) {
+        const url = b.images[i];
+        if (typeof url === "string" && url.length <= 500) {
+          try {
+            await PaymentModel.rawQuery(
+              "INSERT INTO car_images (car_id, image_url, is_primary, sort_order) VALUES (?, ?, ?, ?)",
+              [carId, url, i === 0 ? 1 : 0, i],
+            );
+          } catch (_) {}
+        }
+      }
+    }
+
+    res
+      .status(201)
+      .json({ success: true, data: { owner_id: ownerId, car_id: carId } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Profili i pronarit
+ownerRouter.get("/me", authenticate, async (req, res) => {
+  try {
+    const rows = await PaymentModel.rawQuery(
+      "SELECT * FROM car_owners WHERE user_id = ? LIMIT 1",
+      [req.userId],
+    );
+    res.json({ success: true, data: rows[0] || null });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 module.exports = {
   paymentRouter,
   reviewRouter,
@@ -397,4 +681,5 @@ module.exports = {
   notificationRouter,
   favoriteRouter,
   promotionRouter,
+  ownerRouter,
 };

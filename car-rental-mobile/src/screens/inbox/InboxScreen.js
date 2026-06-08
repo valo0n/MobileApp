@@ -103,10 +103,9 @@ const InboxScreen = ({ navigation }) => {
   const load = async () => {
     try {
       const res = await ChatService.getConversations();
-      const data = res.data || [];
-      setConversations(data.length > 0 ? data : MOCK);
+      setConversations(res.data || []);
     } catch (e) {
-      setConversations(MOCK);
+      setConversations([]);
     } finally {
       setLoading(false);
     }
@@ -182,29 +181,6 @@ const InboxScreen = ({ navigation }) => {
           onChangeText={setSearch}
         />
       </View>
-
-      {/* Stories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.storiesRow}
-        contentContainerStyle={{ paddingHorizontal: 20 }}
-      >
-        <View style={styles.storyItem}>
-          <TouchableOpacity style={styles.addStoryCircle}>
-            <PlusIcon color="#111" />
-          </TouchableOpacity>
-          <Text style={styles.storyName}>Add story</Text>
-        </View>
-        {STORIES.map((s) => (
-          <TouchableOpacity key={s.id} style={styles.storyItem}>
-            <View style={styles.storyRing}>
-              <Image source={{ uri: s.avatar }} style={styles.storyAvatar} />
-            </View>
-            <Text style={styles.storyName}>{s.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
 
       {/* Conversations */}
       {loading ? (

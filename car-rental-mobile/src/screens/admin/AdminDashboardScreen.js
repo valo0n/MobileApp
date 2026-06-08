@@ -127,6 +127,9 @@ const AdminDashboardScreen = ({ navigation }) => {
     loadStats,
     deleteCar,
     updateBookingStatus,
+    approveLicense,
+    toggleUserActive,
+    deleteUser,
   } = useAdminViewModel();
 
   const [activeTab, setActiveTab] = useState("Overview");
@@ -176,6 +179,42 @@ const AdminDashboardScreen = ({ navigation }) => {
       },
       { text: "Anulo", style: "cancel" },
     ]);
+  };
+
+  const handleUserActions = (u) => {
+    const options = [];
+    if (!u.is_verified) {
+      options.push({
+        text: "✓ Aprovo licencën",
+        onPress: async () => {
+          const ok = await approveLicense(u.id);
+          if (ok) Alert.alert("U krye", "Licenca u aprovua");
+        },
+      });
+    }
+    options.push({
+      text: u.is_active ? "Çaktivizo" : "Aktivizo",
+      onPress: () => toggleUserActive(u.id, !u.is_active),
+    });
+    options.push({
+      text: "Fshij",
+      style: "destructive",
+      onPress: () =>
+        Alert.alert("Fshij përdoruesin", `Të fshihet ${u.first_name}?`, [
+          { text: "Jo", style: "cancel" },
+          {
+            text: "Po",
+            style: "destructive",
+            onPress: () => deleteUser(u.id),
+          },
+        ]),
+    });
+    options.push({ text: "Anulo", style: "cancel" });
+    Alert.alert(
+      `${u.first_name} ${u.last_name || ""}`.trim(),
+      u.email,
+      options,
+    );
   };
 
   const handleLogout = () => {
@@ -336,33 +375,93 @@ const AdminDashboardScreen = ({ navigation }) => {
     <View>
       <Text style={styles.sectionTitle}>P\u00ebrdoruesit ({users.length})</Text>
       {users.map((u) => (
-        <View key={u.id} style={styles.listCard}>
-          <Image
-            source={{
-              uri: u.avatar_url || `https://i.pravatar.cc/100?u=${u.id}`,
-            }}
-            style={styles.userAvatar}
-          />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.listTitle}>
-              {u.first_name} {u.last_name}
-            </Text>
-            <Text style={styles.listSub}>{u.email}</Text>
-          </View>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: u.is_active ? "#10B98122" : "#EF444422" },
-            ]}
-          >
-            <Text
+        <View key={u.id} style={styles.userCard}>
+          <View style={styles.userTop}>
+            <Image
+              source={{
+                uri: u.avatar_url || `https://i.pravatar.cc/100?u=${u.id}`,
+              }}
+              style={styles.userAvatar}
+            />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.listTitle}>
+                {u.first_name} {u.last_name}
+              </Text>
+              <Text style={styles.listSub}>{u.email}</Text>
+              <Text
+                style={[
+                  styles.listSub,
+                  {
+                    color: u.is_verified ? "#10B981" : "#F59E0B",
+                    marginTop: 2,
+                  },
+                ]}
+              >
+                {u.is_verified
+                  ? "Licenca: ✓ aprovuar"
+                  : "Licenca: ⏳ pa aprovuar"}
+              </Text>
+            </View>
+            <View
               style={[
-                styles.statusText,
-                { color: u.is_active ? "#10B981" : "#EF4444" },
+                styles.statusBadge,
+                { backgroundColor: u.is_active ? "#10B98122" : "#EF444422" },
               ]}
             >
-              {u.is_active ? "aktiv" : "jo aktiv"}
-            </Text>
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: u.is_active ? "#10B981" : "#EF4444" },
+                ]}
+              >
+                {u.is_active ? "aktiv" : "jo aktiv"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Butonat e veprimeve */}
+          <View style={styles.userActions}>
+            {!u.is_verified ? (
+              <TouchableOpacity
+                style={[styles.uBtn, { backgroundColor: "#10B981" }]}
+                onPress={async () => {
+                  const ok = await approveLicense(u.id, true);
+                  if (ok) Alert.alert("U krye", "Licenca u aprovua");
+                }}
+              >
+                <Text style={styles.uBtnText}>✓ Aprovo licencën</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.uBtn, { backgroundColor: "#F59E0B" }]}
+                onPress={() => approveLicense(u.id, false)}
+              >
+                <Text style={styles.uBtnText}>Hiq aprovimin</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.uBtn, { backgroundColor: "#374151" }]}
+              onPress={() => toggleUserActive(u.id, !u.is_active)}
+            >
+              <Text style={styles.uBtnText}>
+                {u.is_active ? "Çaktivizo" : "Aktivizo"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.uBtn, { backgroundColor: "#EF4444" }]}
+              onPress={() =>
+                Alert.alert("Fshij", `Të fshihet ${u.first_name}?`, [
+                  { text: "Jo", style: "cancel" },
+                  {
+                    text: "Po",
+                    style: "destructive",
+                    onPress: () => deleteUser(u.id),
+                  },
+                ])
+              }
+            >
+              <Text style={styles.uBtnText}>Fshij</Text>
+            </TouchableOpacity>
           </View>
         </View>
       ))}
@@ -431,6 +530,25 @@ const AdminDashboardScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  userCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+  },
+  userTop: { flexDirection: "row", alignItems: "center" },
+  userActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  uBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  uBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   container: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
     flexDirection: "row",

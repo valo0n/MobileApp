@@ -9,6 +9,8 @@ export const AuthService = {
   register: (data) => api.post("/auth/register", data),
   login: (data) => api.post("/auth/login", data),
   getProfile: () => api.get("/auth/profile"),
+  refresh: (refreshToken) => api.post("/auth/refresh", { refreshToken }),
+  logout: (refreshToken) => api.post("/auth/logout", { refreshToken }),
 };
 
 // ── Car Service ──
@@ -66,8 +68,11 @@ export const ChatService = {
   getMessages: (convId) => api.get(`/chat/conversations/${convId}/messages`),
   sendMessage: (convId, content) =>
     api.post(`/chat/conversations/${convId}/messages`, { content }),
-  startConversation: (recipientId) =>
-    api.post("/chat/conversations/start", { recipient_id: recipientId }),
+  startConversation: (arg) =>
+    api.post(
+      "/chat/conversations/start",
+      typeof arg === "object" && arg !== null ? arg : { recipient_id: arg },
+    ),
   markRead: (convId) => api.put(`/chat/conversations/${convId}/read`),
 };
 

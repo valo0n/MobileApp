@@ -1,12 +1,40 @@
 const BookingModel = require("../models/Booking.model");
 const CarModel = require("../models/Car.model");
+const { PaymentModel } = require("../models/index");
+
+// Stripe (init i sigurt — s'e rrezon serverin nese mungon)
+let stripe = null;
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+  }
+} catch (e) {
+  console.warn("Stripe not available:", e.message);
+}
 
 class BookingViewModel {
   async create(userId, data) {
     const car = await CarModel.findById(data.car_id);
     if (!car) throw { status: 404, message: "Car not found" };
-    if (car.status !== "available")
+    if (["maintenance", "inactive"].includes(car.status))
       throw { status: 400, message: "Car is not available" };
+
+    // KF-04: kontroll i disponueshmerise sipas datave (konflikt)
+    const overlap = await BookingModel.rawQuery(
+      `SELECT id FROM bookings
+       WHERE car_id = ?
+         AND status IN ('pending','confirmed','active')
+         AND pickup_datetime < ?
+         AND dropoff_datetime > ?
+       LIMIT 1`,
+      [data.car_id, data.dropoff_datetime, data.pickup_datetime],
+    );
+    if (overlap.length > 0) {
+      throw {
+        status: 409,
+        message: "Vetura eshte e zene per keto data",
+      };
+    }
 
     const booking = await BookingModel.create({
       booking_ref: BookingModel.generateRef(),
@@ -27,9 +55,6 @@ class BookingViewModel {
       currency: data.currency || "USD",
       status: data.status || "pending",
     });
-
-    // Update car status
-    await CarModel.update(data.car_id, { status: "rented" });
 
     return booking;
   }
@@ -53,15 +78,46 @@ class BookingViewModel {
       throw { status: 400, message: "Booking cannot be cancelled" };
     }
 
+    // KF-08: politika e rimbursimit — 100% nese mbeten > 48h deri ne marrje
+    const hoursUntilPickup =
+      (new Date(booking.pickup_datetime).getTime() - Date.now()) / 3600000;
+    const eligible = hoursUntilPickup > 48;
+    const refundAmount = eligible ? Number(booking.total_price) : 0;
+
     await BookingModel.update(bookingId, {
       status: "cancelled",
       cancellation_reason: reason || null,
     });
 
-    // Free the car
+    // Liro veturen
     await CarModel.update(booking.car_id, { status: "available" });
 
-    return { message: "Booking cancelled successfully" };
+    // Procesoji rimbursimin (Stripe nese ka, perndryshe vetem shenoje)
+    if (eligible && refundAmount > 0) {
+      try {
+        const payments = await PaymentModel.findByBooking(bookingId);
+        const paid = (payments || []).find(
+          (p) => p.status === "completed" && p.transaction_id,
+        );
+        if (paid) {
+          if (stripe && String(paid.transaction_id).startsWith("pi_")) {
+            await stripe.refunds.create({
+              payment_intent: paid.transaction_id,
+            });
+          }
+          await PaymentModel.update(paid.id, { status: "refunded" });
+        }
+      } catch (e) {
+        console.warn("Refund issue:", e.message);
+      }
+    }
+
+    return {
+      message: "Booking cancelled successfully",
+      eligible,
+      refunded: refundAmount,
+      policy: "100% refund nese anulohet > 48 ore para marrjes",
+    };
   }
 
   async updateStatus(bookingId, status) {

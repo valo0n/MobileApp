@@ -149,7 +149,7 @@ const SearchScreen = ({ navigation, route }) => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.iconBtn}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("Home")}
         >
           <BackIcon size={20} color="#111" />
         </TouchableOpacity>

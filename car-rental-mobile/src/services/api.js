@@ -30,12 +30,49 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ── Handle response errors ──
+// ── Handle response: auto-refresh access token on 401 (KF-02) ──
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
+
+    const skip =
+      !original ||
+      original._retry ||
+      (original.url || "").includes("/auth/refresh") ||
+      (original.url || "").includes("/auth/login") ||
+      (original.url || "").includes("/auth/register");
+
+    if (status === 401 && !skip) {
+      original._retry = true;
+      try {
+        const refreshToken = await SecureStore.getItemAsync("refresh_token");
+        if (!refreshToken) throw new Error("no refresh token");
+
+        // axios i paster qe te mos hyje ne kete interceptor (loop)
+        const r = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+        const data = r.data?.data || {};
+        if (data.accessToken) {
+          await SecureStore.setItemAsync("auth_token", data.accessToken);
+          if (data.refreshToken) {
+            await SecureStore.setItemAsync("refresh_token", data.refreshToken);
+          }
+          original.headers = original.headers || {};
+          original.headers.Authorization = `Bearer ${data.accessToken}`;
+          return api(original); // ripersrit kerkesen origjinale
+        }
+      } catch (e) {
+        // Refresh deshtoi -> pastro token-at (useri duhet te ri-logohet)
+        await SecureStore.deleteItemAsync("auth_token");
+        await SecureStore.deleteItemAsync("refresh_token");
+      }
+    }
+
     const message = error.response?.data?.message || "Something went wrong";
-    return Promise.reject({ message, status: error.response?.status });
+    return Promise.reject({ message, status });
   },
 );
 

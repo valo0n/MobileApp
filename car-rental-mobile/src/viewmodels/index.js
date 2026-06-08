@@ -24,7 +24,10 @@ export const useAuthViewModel = () => {
     setError(null);
     try {
       const res = await AuthService.register(data);
-      await SecureStore.setItemAsync("auth_token", res.data.token);
+      await SecureStore.setItemAsync("auth_token", res.data.accessToken);
+      if (res.data.refreshToken) {
+        await SecureStore.setItemAsync("refresh_token", res.data.refreshToken);
+      }
       setUser(res.data.user);
       return res.data;
     } catch (e) {
@@ -40,7 +43,10 @@ export const useAuthViewModel = () => {
     setError(null);
     try {
       const res = await AuthService.login(data);
-      await SecureStore.setItemAsync("auth_token", res.data.token);
+      await SecureStore.setItemAsync("auth_token", res.data.accessToken);
+      if (res.data.refreshToken) {
+        await SecureStore.setItemAsync("refresh_token", res.data.refreshToken);
+      }
       setUser(res.data.user);
       return res.data;
     } catch (e) {
@@ -52,7 +58,12 @@ export const useAuthViewModel = () => {
   };
 
   const logout = async () => {
+    try {
+      const refreshToken = await SecureStore.getItemAsync("refresh_token");
+      if (refreshToken) await AuthService.logout(refreshToken);
+    } catch (e) {}
     await SecureStore.deleteItemAsync("auth_token");
+    await SecureStore.deleteItemAsync("refresh_token");
     setUser(null);
   };
 

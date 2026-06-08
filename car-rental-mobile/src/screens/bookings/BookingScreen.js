@@ -128,22 +128,28 @@ const BookingScreen = ({ navigation, route }) => {
   const days = Math.max(1, Math.round((returnDate - pickupDate) / 86400000));
 
   // Totali sipas llojit te qirase
-  let total;
+  let base;
   let durationHours;
   if (rentalTime === "Hour") {
-    total = perHour * 24 * days;
+    base = perHour * 24 * days;
     durationHours = days * 24;
   } else if (rentalTime === "Weekly") {
-    total = perDay * 7;
+    base = perDay * 7;
     durationHours = 168;
   } else if (rentalTime === "Monthly") {
-    total = perDay * 30;
+    base = perDay * 30;
     durationHours = 720;
   } else {
-    total = perDay * days; // Day
+    base = perDay * days; // Day
     durationHours = days * 24;
   }
-  total = Math.round(total * 100) / 100;
+
+  // Ndarja e cmimit: baze + komision 10% + TVSH 18%
+  const r2 = (n) => Math.round(n * 100) / 100;
+  base = r2(base);
+  const commission = r2(base * 0.1);
+  const vat = r2((base + commission) * 0.18);
+  const total = r2(base + commission + vat);
 
   const fmtDate = (d) =>
     `${d.getDate()}/ ${d.toLocaleString("en-US", { month: "long" })} /${d.getFullYear()}`;
@@ -331,6 +337,32 @@ const BookingScreen = ({ navigation, route }) => {
             />
           </View>
         </View>
+
+        {/* Ndarja e cmimit */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Përmbledhja e Çmimit</Text>
+          <View style={styles.priceCard}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceKey}>
+                Baza ({rentalTime === "Day" ? `${days} ditë` : rentalTime})
+              </Text>
+              <Text style={styles.priceVal}>${base}</Text>
+            </View>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceKey}>Komisioni (10%)</Text>
+              <Text style={styles.priceVal}>${commission}</Text>
+            </View>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceKey}>TVSH (18%)</Text>
+              <Text style={styles.priceVal}>${vat}</Text>
+            </View>
+            <View style={styles.priceDivider} />
+            <View style={styles.priceRow}>
+              <Text style={styles.priceTotalKey}>Totali</Text>
+              <Text style={styles.priceTotalVal}>${total}</Text>
+            </View>
+          </View>
+        </View>
       </ScrollView>
 
       {/* Pay Now */}
@@ -347,6 +379,10 @@ const BookingScreen = ({ navigation, route }) => {
                 dropoff_datetime: toSql(returnDate),
                 duration_hours: durationHours,
                 pickup_address: location,
+                base_price: base,
+                service_fee: commission,
+                insurance_fee: vat,
+                total_price: total,
               },
             })
           }
@@ -360,6 +396,26 @@ const BookingScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
+  priceCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+  },
+  priceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  priceKey: { color: "#6B7280", fontSize: 14 },
+  priceVal: { color: "#111", fontSize: 14, fontWeight: "600" },
+  priceDivider: {
+    height: 1,
+    backgroundColor: "#EEF0F2",
+    marginVertical: 8,
+  },
+  priceTotalKey: { color: "#111", fontSize: 16, fontWeight: "700" },
+  priceTotalVal: { color: "#111", fontSize: 18, fontWeight: "800" },
   container: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
     flexDirection: "row",

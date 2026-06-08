@@ -10,10 +10,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
+  Linking,
 } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { useFocusEffect } from "@react-navigation/native";
 import { BackIcon } from "../../components/common/Icons";
 import { useBookingsViewModel } from "../../viewmodels";
+import { ReviewService } from "../../services";
+import { API_BASE_URL } from "../../services/api";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -50,6 +56,47 @@ const MyBookingsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("all");
 
+  // Review modal
+  const [reviewBooking, setReviewBooking] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const openInvoice = async (b) => {
+    try {
+      const token = await SecureStore.getItemAsync("auth_token");
+      const url = `${API_BASE_URL}/payments/invoice/${b.id}?token=${token}`;
+      Linking.openURL(url);
+    } catch (e) {
+      Alert.alert("Gabim", "Nuk u hap fatura");
+    }
+  };
+
+  const openReview = (b) => {
+    setReviewBooking(b);
+    setRating(5);
+    setComment("");
+  };
+
+  const submitReview = async () => {
+    if (!reviewBooking) return;
+    setSubmitting(true);
+    try {
+      await ReviewService.create({
+        booking_id: reviewBooking.id,
+        car_id: reviewBooking.car_id,
+        rating,
+        comment,
+      });
+      setReviewBooking(null);
+      Alert.alert("Faleminderit", "Vlerësimi u ruajt me sukses");
+    } catch (e) {
+      Alert.alert("Gabim", e.message || "Nuk u ruajt vlerësimi");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     try {
       await loadBookings();
@@ -80,7 +127,18 @@ const MyBookingsScreen = ({ navigation }) => {
         style: "destructive",
         onPress: async () => {
           try {
-            await cancelBooking(booking.id, "Cancelled by user");
+            const res = await cancelBooking(booking.id, "Cancelled by user");
+            if (res?.eligible) {
+              Alert.alert(
+                "Anuluar",
+                `Rezervimi u anulua. Rimbursim 100%: $${res.refunded}.`,
+              );
+            } else {
+              Alert.alert(
+                "Anuluar",
+                "Rezervimi u anulua. Pa rimbursim (më pak se 48 orë para marrjes).",
+              );
+            }
           } catch (e) {
             Alert.alert("Error", e.message || "Could not cancel");
           }
@@ -133,14 +191,32 @@ const MyBookingsScreen = ({ navigation }) => {
           <Text style={styles.total}>
             {b.currency || "USD"} {parseFloat(b.total_price || 0).toFixed(2)}
           </Text>
-          {canCancel && (
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => onCancel(b)}
-            >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          )}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {["confirmed", "completed", "active"].includes(b.status) && (
+              <>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={() => openInvoice(b)}
+                >
+                  <Text style={styles.secondaryText}>Faturë</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={() => openReview(b)}
+                >
+                  <Text style={styles.secondaryText}>Vlerëso</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {canCancel && (
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => onCancel(b)}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -210,6 +286,54 @@ const MyBookingsScreen = ({ navigation }) => {
           {filtered.map(renderCard)}
         </ScrollView>
       )}
+
+      {/* Modal: Shkrim review (KF-09) */}
+      <Modal
+        visible={!!reviewBooking}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReviewBooking(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Vlerëso qiranë</Text>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <TouchableOpacity key={s} onPress={() => setRating(s)}>
+                  <Text style={[styles.star, s <= rating && styles.starActive]}>
+                    ★
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Shkruaj një koment (opsionale)"
+              placeholderTextColor="#9CA3AF"
+              value={comment}
+              onChangeText={setComment}
+              multiline
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => setReviewBooking(null)}
+              >
+                <Text style={styles.modalCancelText}>Anulo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSubmit}
+                onPress={submitReview}
+                disabled={submitting}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {submitting ? "..." : "Dërgo"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -294,6 +418,58 @@ const styles = StyleSheet.create({
     borderColor: "#EF4444",
   },
   cancelText: { color: "#EF4444", fontWeight: "700", fontSize: 13 },
+  secondaryBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+  },
+  secondaryText: { color: "#111", fontWeight: "600", fontSize: 13 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  modalCard: { backgroundColor: "#fff", borderRadius: 18, padding: 20 },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#111",
+    marginBottom: 12,
+  },
+  starsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  star: { fontSize: 36, color: "#D1D5DB", marginHorizontal: 4 },
+  starActive: { color: "#F5A623" },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: "top",
+    color: "#111",
+  },
+  modalBtns: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 16,
+    gap: 10,
+  },
+  modalCancel: { paddingHorizontal: 16, paddingVertical: 10 },
+  modalCancelText: { color: "#6B7280", fontWeight: "600" },
+  modalSubmit: {
+    backgroundColor: "#111",
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 22,
+  },
+  modalSubmitText: { color: "#fff", fontWeight: "700" },
   emptyEmoji: { fontSize: 44, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: "700", color: "#111" },
   emptySub: {

@@ -308,6 +308,19 @@ const NotificationsScreen = ({ navigation }) => {
     });
   };
 
+  const handleNotifPress = (n) => {
+    // shenoje si te lexuar (lokalisht)
+    setNotifications((prev) =>
+      prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)),
+    );
+    // navigo sipas tipit
+    if (n.type === "chat") {
+      navigation.navigate("Inbox");
+    } else if (n.type === "booking") {
+      navigation.navigate("MyBookings");
+    }
+  };
+
   const renderNotification = (n) => {
     const Icon = getIcon(n.type);
     const isSelected = !!selected[n.id];
@@ -317,7 +330,7 @@ const NotificationsScreen = ({ navigation }) => {
         style={styles.notifCard}
         activeOpacity={0.7}
         onLongPress={() => enterSelectMode(n.id)}
-        onPress={() => selectMode && toggleSelect(n.id)}
+        onPress={() => (selectMode ? toggleSelect(n.id) : handleNotifPress(n))}
       >
         {selectMode && (
           <View

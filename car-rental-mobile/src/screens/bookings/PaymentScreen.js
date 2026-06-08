@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -85,7 +85,23 @@ const PaymentScreen = ({ navigation, route }) => {
   const [holder, setHolder] = useState("");
   const [loading, setLoading] = useState(false);
   const [cardComplete, setCardComplete] = useState(false);
+  const [cardDetails, setCardDetails] = useState(null);
+  const [savedCards, setSavedCards] = useState([]);
+  const [saveCard, setSaveCard] = useState(false);
   const { confirmPayment } = useStripe();
+
+  useEffect(() => {
+    PaymentService.getMethods()
+      .then((res) => setSavedCards(res.data || []))
+      .catch(() => {});
+  }, []);
+
+  const removeSavedCard = async (id) => {
+    try {
+      await PaymentService.removeMethod(id);
+      setSavedCards((prev) => prev.filter((c) => c.id !== id));
+    } catch (e) {}
+  };
 
   // Formato numrin: 4242 4242 4242 4242
   const formatCardNumber = (t) => {
@@ -114,8 +130,10 @@ const PaymentScreen = ({ navigation, route }) => {
             .slice(0, 19)
             .replace("T", " "),
         duration_hours: bookingData.duration_hours || 72,
-        base_price: amount,
-        total_price: amount,
+        base_price: bookingData.base_price ?? amount,
+        service_fee: bookingData.service_fee ?? 0,
+        insurance_fee: bookingData.insurance_fee ?? 0,
+        total_price: bookingData.total_price ?? amount,
         pickup_address:
           bookingData.pickup_address || "Shore Dr, Chicago 0062 Usa",
       };
@@ -180,6 +198,19 @@ const PaymentScreen = ({ navigation, route }) => {
         status: "completed",
         transaction_id: paymentIntent.id,
       });
+
+      // US-14: ruaj karten nese useri zgjodhi
+      if (saveCard && cardDetails?.last4) {
+        try {
+          await PaymentService.addMethod({
+            type: "credit_card",
+            card_brand: cardDetails.brand || null,
+            last_four: cardDetails.last4,
+            expiry_month: cardDetails.expiryMonth || null,
+            expiry_year: cardDetails.expiryYear || null,
+          });
+        } catch (_) {}
+      }
 
       navigation.replace("PaymentSuccess", { car, amount, bookingRef });
     } catch (err) {
@@ -265,6 +296,22 @@ const PaymentScreen = ({ navigation, route }) => {
         {/* Forma e kartes BRENDA app-it (Stripe CardField) */}
         {method === "credit_card" && (
           <View style={styles.section}>
+            {savedCards.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={styles.label}>Kartat e Ruajtura</Text>
+                {savedCards.map((c) => (
+                  <View key={c.id} style={styles.savedCard}>
+                    <Text style={styles.savedCardText}>
+                      {(c.card_brand || "Kartë").toUpperCase()} ••••{" "}
+                      {c.last_four}
+                    </Text>
+                    <TouchableOpacity onPress={() => removeSavedCard(c.id)}>
+                      <Text style={styles.savedCardRemove}>Hiq</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
             <Text style={styles.label}>Detajet e Kartës</Text>
             <CardField
               postalCodeEnabled={false}
@@ -277,12 +324,26 @@ const PaymentScreen = ({ navigation, route }) => {
                 fontSize: 15,
               }}
               style={{ width: "100%", height: 52, marginTop: 4 }}
-              onCardChange={(d) => setCardComplete(d.complete)}
+              onCardChange={(d) => {
+                setCardComplete(d.complete);
+                setCardDetails(d);
+              }}
             />
             <Text style={{ color: "#9CA3AF", fontSize: 12, marginTop: 8 }}>
               Kartë testimi: 4242 4242 4242 4242 — datë në të ardhmen (12/34),
               çdo CVC.
             </Text>
+            <TouchableOpacity
+              style={styles.saveCardRow}
+              onPress={() => setSaveCard((v) => !v)}
+            >
+              <View style={[styles.checkbox, saveCard && styles.checkboxOn]}>
+                {saveCard && <Text style={styles.checkboxTick}>✓</Text>}
+              </View>
+              <Text style={styles.saveCardLabel}>
+                Ruaj kartën për herë tjetër
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -339,6 +400,36 @@ const PaymentScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
+  savedCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  savedCardText: { color: "#111", fontWeight: "600", fontSize: 14 },
+  savedCardRemove: { color: "#EF4444", fontWeight: "600", fontSize: 13 },
+  saveCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 14,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#9CA3AF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  checkboxOn: { backgroundColor: "#111", borderColor: "#111" },
+  checkboxTick: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  saveCardLabel: { color: "#111", fontSize: 14 },
   container: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
     flexDirection: "row",

@@ -43,6 +43,15 @@ export const PaymentService = {
     api.post("/payments/intent/confirm", {
       payment_intent_id: paymentIntentId,
     }),
+  getMethods: () => api.get("/payments/methods"),
+  addMethod: (data) => api.post("/payments/methods", data),
+  removeMethod: (id) => api.delete(`/payments/methods/${id}`),
+};
+
+// ── Owner / Partner Service ──
+export const OwnerService = {
+  getMyOwner: () => api.get("/owners/me"),
+  register: (data) => api.post("/owners/register", data),
 };
 
 // ── Review Service ──
@@ -80,10 +89,4 @@ export const FavoriteService = {
 export const PromotionService = {
   getAll: () => api.get("/promotions"),
   validate: (code) => api.post("/promotions/validate", { code }),
-};
-
-// ── Owner -- Service
-export const OwnerService = {
-  getMyOwner: () => api.get("/owners/me"),
-  register: (data) => api.post("/owners/register", data),
 };

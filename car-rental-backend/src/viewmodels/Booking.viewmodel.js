@@ -1,6 +1,11 @@
 const BookingModel = require("../models/Booking.model");
 const CarModel = require("../models/Car.model");
-const { PaymentModel } = require("../models/index");
+const {
+  PaymentModel,
+  ConversationModel,
+  MessageModel,
+  NotificationModel,
+} = require("../models/index");
 
 // Stripe (init i sigurt — s'e rrezon serverin nese mungon)
 let stripe = null;
@@ -55,6 +60,51 @@ class BookingViewModel {
       currency: data.currency || "USD",
       status: data.status || "pending",
     });
+
+    // Mesazh automatik nga pronari te klienti + bisedë e re (që klienti të flasë me pronarin)
+    try {
+      const ownerRows = await BookingModel.rawQuery(
+        `SELECT co.user_id FROM cars c
+         JOIN car_owners co ON c.owner_id = co.id
+         WHERE c.id = ? LIMIT 1`,
+        [data.car_id],
+      );
+      const ownerUserId = ownerRows[0]?.user_id;
+      if (ownerUserId && Number(ownerUserId) !== Number(userId)) {
+        const convId = await ConversationModel.findOrCreateBetween(
+          userId,
+          ownerUserId,
+        );
+        const carName =
+          `${car.make || ""} ${car.model || ""}`.trim() || "vetura";
+        await MessageModel.create({
+          conversation_id: convId,
+          sender_id: ownerUserId,
+          content: `Përshëndetje! Faleminderit që rezervuat ${carName}. Rezervimi juaj u konfirmua dhe vetura do të jetë gati për ju. Më shkruani këtu për çdo detaj rreth dorëzimit. 🚗`,
+          message_type: "text",
+        });
+
+        // Njoftim per pronarin: rezervim i ri
+        await NotificationModel.create({
+          user_id: ownerUserId,
+          title: "Rezervim i ri",
+          body: `Keni një rezervim të ri për ${carName}.`,
+          type: "booking",
+        }).catch(() => {});
+      }
+
+      // Njoftim per klientin: rezervimi u krye
+      const carNameC =
+        `${car.make || ""} ${car.model || ""}`.trim() || "veturën";
+      await NotificationModel.create({
+        user_id: userId,
+        title: "Rezervimi u krye",
+        body: `Rezervimi juaj për ${carNameC} u regjistrua me sukses.`,
+        type: "booking",
+      }).catch(() => {});
+    } catch (e) {
+      console.warn("Auto-message failed:", e.message);
+    }
 
     return booking;
   }
@@ -122,7 +172,63 @@ class BookingViewModel {
 
   async updateStatus(bookingId, status) {
     await BookingModel.update(bookingId, { status });
-    return BookingModel.findWithDetails(bookingId);
+    const booking = await BookingModel.findWithDetails(bookingId);
+
+    try {
+      const customerId = booking.user_id;
+      const carName = booking.model || "vetura";
+
+      let title = "Rezervimi u përditësua";
+      let body = `Statusi i rezervimit për ${carName} është tani: ${status}.`;
+      let chatMsg = null;
+
+      if (status === "completed") {
+        title = "Rezervimi u përfundua";
+        body = `Faleminderit që zgjodhët ${carName}! Shpresojmë t'ju shohim sërish.`;
+        chatMsg = `Faleminderit për besimin! Rezervimi i ${carName} u përfundua. Shpresojmë të riktheheni së shpejti. 🙏`;
+      } else if (status === "active") {
+        title = "Vetura është gati";
+        body = `${carName} është aktive — udhëtim të mbarë!`;
+        chatMsg = `Vetura ${carName} është gati dhe rezervimi juaj është aktiv. Udhëtim të mbarë! 🚗`;
+      } else if (status === "cancelled") {
+        title = "Rezervimi u anulua";
+        body = `Rezervimi për ${carName} u anulua.`;
+      }
+
+      await NotificationModel.create({
+        user_id: customerId,
+        title,
+        body,
+        type: "booking",
+      }).catch(() => {});
+
+      // Mesazh nga pronari (per completed/active)
+      if (chatMsg) {
+        const ownerRows = await BookingModel.rawQuery(
+          `SELECT co.user_id FROM cars c
+           JOIN car_owners co ON c.owner_id = co.id
+           WHERE c.id = ? LIMIT 1`,
+          [booking.car_id],
+        );
+        const ownerUserId = ownerRows[0]?.user_id;
+        if (ownerUserId && Number(ownerUserId) !== Number(customerId)) {
+          const convId = await ConversationModel.findOrCreateBetween(
+            customerId,
+            ownerUserId,
+          );
+          await MessageModel.create({
+            conversation_id: convId,
+            sender_id: ownerUserId,
+            content: chatMsg,
+            message_type: "text",
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Status notify failed:", e.message);
+    }
+
+    return booking;
   }
 }
 

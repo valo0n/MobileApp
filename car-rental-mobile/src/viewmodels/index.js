@@ -139,8 +139,9 @@ export const useBookingsViewModel = () => {
   };
 
   const cancelBooking = async (id, reason) => {
-    await BookingService.cancel(id, reason);
+    const res = await BookingService.cancel(id, reason);
     loadBookings();
+    return res.data;
   };
 
   return { bookings, loading, loadBookings, createBooking, cancelBooking };

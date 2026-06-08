@@ -213,17 +213,21 @@ const HomeScreen = ({ navigation }) => {
         >
           {/* Search */}
           <View style={styles.searchRow}>
-            <View style={styles.searchBox}>
+            <TouchableOpacity
+              style={styles.searchBox}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("Search")}
+            >
               <SearchIcon size={18} color="#9CA3AF" />
               <TextInput
                 placeholder="Search your dream car....."
                 placeholderTextColor="#9CA3AF"
                 style={styles.searchInput}
                 value={searchText}
-                onChangeText={setSearchText}
-                onFocus={() => navigation.navigate("Search")}
+                editable={false}
+                pointerEvents="none"
               />
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.filterBtn}
               onPress={() => navigation.navigate("Filters")}

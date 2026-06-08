@@ -68,7 +68,14 @@ const MOCK_MESSAGES = [
 ];
 
 const ChatScreen = ({ navigation, route }) => {
-  const { conversationId, name, avatar } = route.params || {};
+  const {
+    conversationId: initialConvId,
+    recipientId,
+    carId,
+    name,
+    avatar,
+  } = route.params || {};
+  const [convId, setConvId] = useState(initialConvId || null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -79,23 +86,36 @@ const ChatScreen = ({ navigation, route }) => {
     AuthService.getProfile()
       .then((res) => setMyId(res.data?.id))
       .catch(() => {});
-    loadMessages();
+    init();
   }, []);
 
-  const loadMessages = async () => {
+  const init = async () => {
     try {
-      const res = await ChatService.getMessages(conversationId);
-      const data = res.data || [];
-      setMessages(data.length > 0 ? data : MOCK_MESSAGES);
+      let id = initialConvId;
+      // Nese s'ka bisede, krijo/gjej biseden me marresin ose me veturen
+      if (!id && (recipientId || carId)) {
+        const r = await ChatService.startConversation(
+          recipientId ? { recipient_id: recipientId } : { car_id: carId },
+        );
+        id = r.data?.id || r.data?.conversationId;
+        setConvId(id);
+      }
+      if (id) {
+        const res = await ChatService.getMessages(id);
+        setMessages(res.data || []);
+        ChatService.markRead(id).catch(() => {}); // shenoji si te lexuara
+      } else {
+        setMessages([]);
+      }
     } catch (e) {
-      setMessages(MOCK_MESSAGES);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSend = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || !convId) return;
     const newMsg = {
       id: Date.now(),
       content: text.trim(),
@@ -110,7 +130,7 @@ const ChatScreen = ({ navigation, route }) => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      await ChatService.sendMessage(conversationId, newMsg.content);
+      await ChatService.sendMessage(convId, newMsg.content);
     } catch (e) {
       // mesazhi mbetet ne UI edhe nese backend deshton
     }

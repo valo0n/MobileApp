@@ -428,6 +428,24 @@ chatRouter.post(
       });
       // Update conversation timestamp
       await ConversationModel.update(req.params.id, { updated_at: new Date() });
+
+      // Njofto pjesemarresit e tjere per mesazhin e ri
+      try {
+        const others = await ConversationModel.rawQuery(
+          `SELECT user_id FROM conversation_participants
+           WHERE conversation_id = ? AND user_id != ?`,
+          [req.params.id, req.userId],
+        );
+        for (const o of others) {
+          await NotificationModel.create({
+            user_id: o.user_id,
+            title: "Mesazh i ri",
+            body: (req.body.content || "Keni një mesazh të ri").slice(0, 80),
+            type: "chat",
+          });
+        }
+      } catch (_) {}
+
       res.status(201).json({ success: true, data: message });
     } catch (e) {
       res.status(500).json({ success: false, message: e.message });
@@ -438,7 +456,19 @@ chatRouter.post(
 // Krijo ose merr nje bisede me nje user (recipient_id)
 chatRouter.post("/conversations/start", authenticate, async (req, res) => {
   try {
-    const otherUserId = req.body.recipient_id;
+    let otherUserId = req.body.recipient_id;
+
+    // Nese vjen car_id, gjej user_id-ne e pronarit te vetures
+    if (!otherUserId && req.body.car_id) {
+      const rows = await ConversationModel.rawQuery(
+        `SELECT co.user_id FROM cars c
+         JOIN car_owners co ON c.owner_id = co.id
+         WHERE c.id = ? LIMIT 1`,
+        [req.body.car_id],
+      );
+      otherUserId = rows[0]?.user_id;
+    }
+
     if (!otherUserId) {
       return res
         .status(400)

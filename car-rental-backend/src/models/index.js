@@ -106,14 +106,15 @@ class MessageModel extends BaseModel {
   }
 
   async findByConversation(conversationId, limit = 50) {
+    const lim = parseInt(limit) || 50;
     return this.rawQuery(
       `SELECT m.*, u.first_name, u.last_name, u.avatar_url
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        WHERE m.conversation_id = ?
        ORDER BY m.created_at ASC
-       LIMIT ?`,
-      [conversationId, limit],
+       LIMIT ${lim}`,
+      [conversationId],
     );
   }
 }

@@ -15,6 +15,7 @@ import Svg, { Path, Rect, Circle } from "react-native-svg";
 import { BackIcon, MoreIcon } from "../../components/common/Icons";
 import { BookingService, PaymentService } from "../../services";
 import { CardField, useStripe } from "@stripe/stripe-react-native";
+import { notifyLocal } from "../../utils/notifications";
 
 // ── Icons ──
 const CardIcon = ({ color = "#111" }) => (
@@ -153,6 +154,10 @@ const PaymentScreen = ({ navigation, route }) => {
           status: "pending",
           transaction_id: "CASH-" + Date.now(),
         });
+        notifyLocal(
+          "Rezervimi u krye",
+          `Rezervimi për ${car.name || car.model || "veturën"} u regjistrua. Pagesa: kesh.`,
+        );
         navigation.replace("PaymentSuccess", { car, amount, bookingRef });
         return;
       }
@@ -212,6 +217,10 @@ const PaymentScreen = ({ navigation, route }) => {
         } catch (_) {}
       }
 
+      notifyLocal(
+        "Pagesa u krye",
+        `Rezervimi për ${car.name || car.model || "veturën"} u konfirmua. Faleminderit!`,
+      );
       navigation.replace("PaymentSuccess", { car, amount, bookingRef });
     } catch (err) {
       Alert.alert("Pagesa Deshtoi", err.message || "Provoni perseri");

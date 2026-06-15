@@ -37,7 +37,10 @@ const RegisterScreen = ({ navigation }) => {
 
     try {
       await register({ first_name, last_name, email, password });
-      navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "VerifyEmail", params: { email } }],
+      });
     } catch (err) {
       Alert.alert("Sign Up Failed", err.message || "Could not create account");
     }

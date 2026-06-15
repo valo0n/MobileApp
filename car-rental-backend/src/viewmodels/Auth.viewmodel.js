@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const config = require("../config/app");
 const UserModel = require("../models/User.model");
+const { sendMail } = require("../utils/mailer");
 
 class AuthViewModel {
   async register({
@@ -141,6 +142,85 @@ class AuthViewModel {
     if (v.endsWith("h")) return n * 3600000;
     if (v.endsWith("m")) return n * 60000;
     return n * 86400000; // ditë (default)
+  }
+
+  // ───────── Forgot password + Email verification ─────────
+
+  _genCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6 shifra
+  }
+
+  async _storeCode(email, code, purpose, minutes = 15) {
+    const expiresAt = new Date(Date.now() + minutes * 60000);
+    await UserModel.rawQuery(
+      "DELETE FROM email_codes WHERE email = ? AND purpose = ?",
+      [email, purpose],
+    );
+    await UserModel.rawQuery(
+      "INSERT INTO email_codes (email, code, purpose, expires_at) VALUES (?, ?, ?, ?)",
+      [email, code, purpose, expiresAt],
+    );
+  }
+
+  async _verifyCode(email, code, purpose) {
+    const rows = await UserModel.rawQuery(
+      `SELECT id FROM email_codes
+       WHERE email = ? AND code = ? AND purpose = ? AND expires_at > NOW()
+       LIMIT 1`,
+      [email, code, purpose],
+    );
+    return rows.length > 0;
+  }
+
+  async requestPasswordReset(email) {
+    const user = await UserModel.findByEmail(email);
+    if (!user) throw { status: 404, message: "Nuk ka llogari me këtë email" };
+    const code = this._genCode();
+    await this._storeCode(email, code, "reset");
+    await sendMail(
+      email,
+      "Rivendosje fjalëkalimi - QENT",
+      `Kodi juaj për rivendosjen e fjalëkalimit është: ${code}\n\nSkadon për 15 minuta. Nëse s'e keni kërkuar ju, injorojeni.`,
+    );
+    return { message: "Kodi u dërgua në email" };
+  }
+
+  async resetPassword(email, code, newPassword) {
+    if (!newPassword || newPassword.length < 6)
+      throw { status: 400, message: "Fjalëkalimi duhet të paktën 6 karaktere" };
+    const ok = await this._verifyCode(email, code, "reset");
+    if (!ok) throw { status: 400, message: "Kod i pavlefshëm ose i skaduar" };
+    const user = await UserModel.findByEmail(email);
+    const hash = await bcrypt.hash(newPassword, 12);
+    await UserModel.update(user.id, { password_hash: hash });
+    await UserModel.rawQuery(
+      "DELETE FROM email_codes WHERE email = ? AND purpose = 'reset'",
+      [email],
+    );
+    return { message: "Fjalëkalimi u ndryshua me sukses" };
+  }
+
+  async sendEmailVerification(email) {
+    const code = this._genCode();
+    await this._storeCode(email, code, "verify");
+    await sendMail(
+      email,
+      "Verifikim email - QENT",
+      `Kodi juaj i verifikimit është: ${code}\n\nSkadon për 15 minuta.`,
+    );
+    return { message: "Kodi i verifikimit u dërgua në email" };
+  }
+
+  async verifyEmail(email, code) {
+    const ok = await this._verifyCode(email, code, "verify");
+    if (!ok) throw { status: 400, message: "Kod i pavlefshëm ose i skaduar" };
+    const user = await UserModel.findByEmail(email);
+    if (user) await UserModel.update(user.id, { is_verified: true });
+    await UserModel.rawQuery(
+      "DELETE FROM email_codes WHERE email = ? AND purpose = 'verify'",
+      [email],
+    );
+    return { message: "Email u verifikua me sukses" };
   }
 
   // Hek password_hash — i sigurt edhe nese user osht null

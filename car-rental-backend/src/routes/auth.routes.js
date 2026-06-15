@@ -51,6 +51,58 @@ router.post("/logout", async (req, res) => {
   }
 });
 
+// POST /api/auth/forgot-password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const result = await AuthViewModel.requestPasswordReset(req.body.email);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res
+      .status(error.status || 500)
+      .json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, code, password } = req.body;
+    const result = await AuthViewModel.resetPassword(email, code, password);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res
+      .status(error.status || 500)
+      .json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/auth/send-verification
+router.post("/send-verification", async (req, res) => {
+  try {
+    const result = await AuthViewModel.sendEmailVerification(req.body.email);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res
+      .status(error.status || 500)
+      .json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/auth/verify-email
+router.post("/verify-email", async (req, res) => {
+  try {
+    const result = await AuthViewModel.verifyEmail(
+      req.body.email,
+      req.body.code,
+    );
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res
+      .status(error.status || 500)
+      .json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/auth/profile
 router.get("/profile", authenticate, async (req, res) => {
   try {

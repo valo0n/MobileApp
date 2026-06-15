@@ -14,6 +14,8 @@ import WelcomeScreen from "../screens/auth/WelcomeScreen";
 import Welcome2Screen from "../screens/auth/Welcome2Screen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
+import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
+import VerifyEmailScreen from "../screens/auth/VerifyEmailScreen";
 
 // ── Home / Search ──
 import HomeScreen from "../screens/home/HomeScreen";
@@ -139,6 +141,8 @@ const AppNavigator = () => (
       <Stack.Screen name="Welcome2" component={Welcome2Screen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
 
       {/* Main (customer / car owner) */}
       <Stack.Screen

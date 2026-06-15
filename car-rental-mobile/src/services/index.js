@@ -11,6 +11,11 @@ export const AuthService = {
   getProfile: () => api.get("/auth/profile"),
   refresh: (refreshToken) => api.post("/auth/refresh", { refreshToken }),
   logout: (refreshToken) => api.post("/auth/logout", { refreshToken }),
+  forgotPassword: (email) => api.post("/auth/forgot-password", { email }),
+  resetPassword: (email, code, password) =>
+    api.post("/auth/reset-password", { email, code, password }),
+  sendVerification: (email) => api.post("/auth/send-verification", { email }),
+  verifyEmail: (email, code) => api.post("/auth/verify-email", { email, code }),
 };
 
 // ── Car Service ──

@@ -37,13 +37,19 @@ async function sendMail(to, subject, text) {
     );
     return false;
   }
-  await t.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-    to,
-    subject,
-    text,
-  });
-  return true;
+  try {
+    const info = await t.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to,
+      subject,
+      text,
+    });
+    console.log(`[MAILER] U dergua te ${to} | messageId: ${info.messageId}`);
+    return true;
+  } catch (err) {
+    console.error(`[MAILER] DESHTOI dergimi te ${to}:`, err.message);
+    throw err;
+  }
 }
 
 module.exports = { sendMail };

@@ -33,7 +33,9 @@ const VerifyEmailScreen = ({ navigation, route }) => {
       await AuthService.sendVerification(email);
       if (!silent) Alert.alert("U dërgua", "Kontrollo email-in për kodin.");
     } catch (e) {
-      if (!silent) Alert.alert("Gabim", e.message || "Provo përsëri");
+      const msg = e?.response?.data?.message || e?.message || "Provo përsëri";
+      // Gabimet shfaqen gjithmonë (edhe ne dergim automatik), qe te mos fshihen
+      Alert.alert("Gabim në dërgim", msg);
     } finally {
       setSending(false);
     }

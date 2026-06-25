@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   ScrollView,
   Image,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import QentLogo from "../../components/common/QentLogo";
 import {
   SearchIcon,
@@ -133,7 +133,16 @@ const HomeScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      if (!loaded) loadData();
+      if (!loaded) {
+        loadData();
+      } else {
+        // rifresko vetëm numrin e njoftimeve (badge te zilja)
+        NotificationService.getCount()
+          .then((r) => {
+            if (r?.data?.count != null) setNotifCount(r.data.count);
+          })
+          .catch(() => {});
+      }
     }, [loaded]),
   );
 
@@ -167,7 +176,7 @@ const HomeScreen = ({ navigation }) => {
   const nearbyCars = cars.slice(4);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
 
       {/* Header */}

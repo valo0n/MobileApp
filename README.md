@@ -1,155 +1,215 @@
-# Car Rental App
+# 🚗 QENT — Car Rental Mobile App
 
-Full-stack car rental application using **MVVM architecture**.
+QENT is a full-stack car rental application that lets customers browse and book cars, pay securely with Stripe, chat with car owners, and manage their bookings — while owners list their vehicles and admins oversee the whole platform.
 
-## Tech Stack
+Built as a cross-platform mobile app (React Native + Expo) backed by a Node.js / Express / MySQL REST API using the **MVVM** architecture.
 
-| Layer | Technology |
-|-------|-----------|
-| Mobile | React Native (Expo) |
-| Backend | Node.js + Express |
-| Database | MySQL |
-| Auth | JWT + bcrypt |
-| Architecture | MVVM |
+> The user interface is in **Albanian**.
 
-## Project Structure
+---
+
+## ✨ Features
+
+### Authentication
+- Email login & sign-up with **bcrypt** password hashing
+- **JWT access token (15 min) + refresh token (7 days)** with rotation, stored in the database and on the device via SecureStore (auto-refresh on expiry)
+- **Email verification** (6-digit code)
+- **Forgot / reset password** via email
+
+### Customer
+- Browse, search and filter cars by brand
+- Car details, favorites, and reviews
+- Booking with transparent **price breakdown** (base price + 10% service commission + 18% VAT)
+- **Date-availability conflict check** (a car can't be double-booked)
+- **Stripe payments** with in-app card entry (test mode) + **saved cards**
+- **Cancellation & refund** (full refund if cancelled ≥ 48h before pickup)
+- **PDF invoice** generation
+- **Real-time-style chat** with the car owner (messages persist; owner auto-messages on booking)
+- **Notifications** for bookings, messages and status changes — both in-app and as **local device notifications**
+
+### Owner (QENT Partner)
+- Become a partner and list a vehicle
+
+### Admin
+- Dashboard with statistics & revenue
+- Manage cars, bookings (status changes) and users
+- Approve / revoke driver licenses, activate / deactivate / delete users
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technologies |
+|-------|--------------|
+| **Mobile** | React Native, Expo SDK 54, React Navigation, Axios, Expo SecureStore, `@stripe/stripe-react-native`, `expo-notifications` |
+| **Backend** | Node.js, Express, MySQL (`mysql2`), JWT (`jsonwebtoken`), `bcryptjs`, Stripe, `pdfkit`, `nodemailer` |
+| **Testing** | Jest (unit tests) |
+| **Architecture** | MVVM (Model–View–ViewModel) |
+| **Tools** | VS Code, Git + GitHub |
+
+---
+
+## 📁 Project Structure
 
 ```
-car-rental-backend/                    car-rental-mobile/
-├── src/                               ├── src/
-│   ├── config/                        │   ├── components/
-│   │   ├── app.js                     │   │   ├── common/
-│   │   └── database.js        ←──────→│   │   ├── cars/
-│   ├── models/          (Model)       │   │   └── bookings/
-│   │   ├── Base.model.js             │   ├── screens/
-│   │   ├── User.model.js             │   │   ├── auth/
-│   │   ├── Car.model.js              │   │   ├── home/
-│   │   ├── Booking.model.js          │   │   ├── cars/
-│   │   └── index.js                  │   │   ├── bookings/
-│   ├── viewmodels/      (ViewModel)  │   │   ├── chat/
-│   │   ├── Auth.viewmodel.js         │   │   ├── profile/
-│   │   ├── Car.viewmodel.js          │   │   └── notifications/
-│   │   └── Booking.viewmodel.js      │   ├── viewmodels/      (ViewModel hooks)
-│   ├── middleware/                    │   │   └── index.js
-│   │   └── auth.middleware.js         │   ├── services/        (API calls)
-│   ├── routes/          (View/API)   │   │   ├── api.js
-│   │   ├── auth.routes.js            │   │   └── index.js
-│   │   ├── user.routes.js            │   ├── navigation/
-│   │   ├── car.routes.js             │   │   └── AppNavigator.js
-│   │   ├── booking.routes.js         │   ├── utils/
-│   │   └── ...                        │   └── constants/
-│   ├── database/                      ├── assets/
-│   │   ├── migrate.js                 ├── App.js
-│   │   └── migrate.sql               └── package.json
-│   └── server.js
-├── .env.example
-└── package.json
+MobileApp/
+├── car-rental-backend/         # Node.js + Express + MySQL (MVVM)
+│   ├── src/
+│   │   ├── config/             # app & database configuration
+│   │   ├── models/             # data layer (Model)
+│   │   ├── viewmodels/         # business logic (ViewModel)
+│   │   ├── routes/             # Express routes
+│   │   ├── middleware/         # auth middleware
+│   │   ├── utils/              # mailer, pricing helpers
+│   │   └── server.js
+│   └── __tests__/              # Jest tests
+│
+└── car-rental-mobile/          # React Native + Expo
+    └── src/
+        ├── screens/            # UI (View)
+        ├── viewmodels/         # hooks / business logic (ViewModel)
+        ├── services/           # API layer
+        ├── navigation/         # React Navigation
+        ├── components/         # reusable components
+        └── utils/              # notifications, helpers
 ```
 
-## Setup
+---
 
-### 1. Database (MySQL Workbench)
+## 🚀 Getting Started
 
-1. Open MySQL Workbench
-2. Connect to your local MySQL server
-3. Open the file `car-rental-backend/src/database/migrate.sql`
-4. Execute it (⚡ lightning bolt icon)
-5. This creates: database, 31 tables, roles, permissions, and seed data
+### Prerequisites
+- Node.js (LTS)
+- MySQL
+- Android Studio (for the dev build) / a physical device
+- A Stripe test account
 
-Or via terminal:
+### 1. Backend
+
 ```bash
 cd car-rental-backend
-cp .env.example .env          # Edit with your MySQL credentials
 npm install
+```
+
+Create a MySQL database named `car_rental_app`, then run the schema and seed scripts:
+
+```bash
 npm run db:migrate
+npm run db:seed
+# plus the extra SQL files:
+#   refresh_tokens.sql, email_codes.sql, seed_cars.sql
 ```
 
-### 2. Backend
+Create a `.env` file in `car-rental-backend/`:
+
+```env
+PORT=3000
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=car_rental_app
+
+JWT_SECRET=your_secret
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+JWT_REFRESH_SECRET=your_refresh_secret
+
+STRIPE_SECRET_KEY=sk_test_xxx
+
+# Email (optional — for forgot password / verification)
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_gmail_app_password
+```
+
+> **Email:** use a Gmail **App Password** (requires 2-Step Verification), not your normal password. If `EMAIL_USER`/`EMAIL_PASS` are not set, codes are printed to the backend console instead.
+
+Start the server:
 
 ```bash
-cd car-rental-backend
-cp .env.example .env          # Edit DB_PASSWORD, JWT_SECRET
-npm install
-npm run dev                   # Starts on http://localhost:3000
+npm run dev
 ```
 
-### 3. Frontend
+### 2. Mobile App
 
 ```bash
 cd car-rental-mobile
 npm install
-npx expo start
 ```
 
-## API Endpoints
+Add your Stripe **publishable** key in `App.js` (`StripeProvider`).
 
-### Auth
-- `POST /api/auth/register` — Register new user
-- `POST /api/auth/login` — Login
-- `GET  /api/auth/profile` — Get current user profile
+Because the app uses native modules (Stripe, notifications), run a **development build** (not Expo Go):
 
-### Cars
-- `GET    /api/cars` — List cars (with filters)
-- `GET    /api/cars/:id` — Car details
-- `GET    /api/cars/categories` — Categories
-- `GET    /api/cars/brands` — Brands
-- `POST   /api/cars` — Create car (car_owner)
-- `PUT    /api/cars/:id` — Update car (car_owner)
-- `DELETE /api/cars/:id` — Delete car (car_owner)
+```bash
+npx expo run:android
+```
 
-### Bookings
-- `GET  /api/bookings` — User's bookings
-- `POST /api/bookings` — Create booking
-- `PUT  /api/bookings/:id/cancel` — Cancel booking
-- `PUT  /api/bookings/:id/status` — Update status (admin)
+The API base URL is derived automatically from your machine's LAN IP via Expo.
 
-### Payments
-- `GET  /api/payments/booking/:id` — Payments for booking
-- `POST /api/payments` — Create payment
+---
 
-### Reviews
-- `GET  /api/reviews/car/:id` — Reviews for car
-- `POST /api/reviews` — Write review
+## 🧪 Testing
 
-### Chat
-- `GET  /api/chat/conversations` — User's conversations
-- `GET  /api/chat/conversations/:id/messages` — Messages
-- `POST /api/chat/conversations/:id/messages` — Send message
+Unit tests cover the core business logic (price breakdown, refund eligibility, date-availability conflict):
 
-### Notifications
-- `GET /api/notifications` — User's notifications
-- `PUT /api/notifications/read-all` — Mark all read
+```bash
+cd car-rental-backend
+npm test
+```
 
-### Favorites
-- `GET  /api/favorites` — User's favorites
-- `POST /api/favorites/toggle` — Add/remove favorite
+---
 
-### Promotions
-- `GET  /api/promotions` — Active promotions
-- `POST /api/promotions/validate` — Validate code
+## 🔑 Test Accounts
 
-## Roles
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@test.com` | `admin123` |
 
-| Role | Access |
+(Register a normal account to test the customer flow.)
+
+---
+
+## 📡 Main API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` · `/login` | Sign up / sign in |
+| POST | `/api/auth/refresh` · `/logout` | Token refresh / logout |
+| POST | `/api/auth/forgot-password` · `/reset-password` | Password reset |
+| POST | `/api/auth/send-verification` · `/verify-email` | Email verification |
+| GET/POST | `/api/cars` | List / create cars |
+| GET/POST | `/api/bookings` | List / create bookings |
+| POST | `/api/payments/intent` · `/intent/confirm` | Stripe payment |
+| GET | `/api/payments/invoice/:id` | PDF invoice |
+| GET/POST/DELETE | `/api/payments/methods` | Saved cards |
+| GET/POST | `/api/chat/conversations` | Chat |
+| GET | `/api/notifications` | Notifications |
+
+---
+
+## 💳 Stripe Test Cards
+
+| Card | Result |
 |------|--------|
-| Customer | Browse, book, pay, review, chat, favorites |
-| Car Owner | + Create/manage car listings |
-| Admin | Full access to everything |
+| `4242 4242 4242 4242` | Success |
+| `4000 0000 0000 0002` | Declined |
+| `4000 0025 0000 3155` | 3D Secure |
 
-## MVVM Pattern
+Use any future expiry date and any CVC.
 
-```
-┌─────────────────────────────────────────────┐
-│  VIEW (Screens / Routes)                    │
-│  - React Native screens                     │
-│  - Express route handlers                   │
-├─────────────────────────────────────────────┤
-│  VIEWMODEL (Business Logic)                 │
-│  - Frontend: Custom React hooks             │
-│  - Backend: ViewModel classes               │
-├─────────────────────────────────────────────┤
-│  MODEL (Data Layer)                         │
-│  - Frontend: API service calls              │
-│  - Backend: MySQL model classes             │
-└─────────────────────────────────────────────┘
-```
+---
+
+## 🏗 Architecture (MVVM)
+
+- **Model** — database models (`models/`) and API services (`services/`)
+- **ViewModel** — business logic in backend `viewmodels/` and React hooks `viewmodels/`
+- **View** — React Native screens (`screens/`)
+
+This separation keeps UI, logic and data access independent and testable.
+
+---
+
+## 📄 License
+
+Academic project — developed for the Mobile Development course.

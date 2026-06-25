@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { BackIcon, MoreIcon } from "../../components/common/Icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { NotificationService } from "../../services";
 
 // ── Icons per cdo lloj notification ──
@@ -227,9 +228,11 @@ const NotificationsScreen = ({ navigation }) => {
   const [selected, setSelected] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, []),
+  );
 
   const loadNotifications = async () => {
     setLoading(true);
@@ -251,6 +254,16 @@ const NotificationsScreen = ({ navigation }) => {
           }),
         }));
         setNotifications(mapped);
+
+        // Shenoji te gjitha si te lexuara (pas pak, qe useri t'i shohe)
+        if (mapped.some((n) => !n.is_read)) {
+          NotificationService.markAllRead().catch(() => {});
+          setTimeout(() => {
+            setNotifications((prev) =>
+              prev.map((n) => ({ ...n, is_read: true })),
+            );
+          }, 1500);
+        }
       } else {
         setNotifications([]);
       }

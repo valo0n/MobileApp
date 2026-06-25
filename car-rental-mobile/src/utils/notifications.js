@@ -33,7 +33,5 @@ export async function notifyLocal(title, body) {
       content: { title, body },
       trigger: null, // menjehere
     });
-  } catch (e) {
-    // injoro ne heshtje
-  }
+  } catch (e) {}
 }

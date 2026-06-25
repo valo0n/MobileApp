@@ -270,7 +270,7 @@ const MyBookingsScreen = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.browseBtn}
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
           >
             <Text style={styles.browseText}>Find a car</Text>
           </TouchableOpacity>

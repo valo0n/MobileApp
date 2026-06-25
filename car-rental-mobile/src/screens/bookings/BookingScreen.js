@@ -11,6 +11,7 @@ import {
   Switch,
 } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   BackIcon,
   MoreIcon,
@@ -116,31 +117,57 @@ const BookingScreen = ({ navigation, route }) => {
   const [contact, setContact] = useState("");
   const [gender, setGender] = useState("male");
   const [rentalTime, setRentalTime] = useState("Day");
+  const [pickupDate, setPickupDate] = useState(new Date());
+  const [returnDate, setReturnDate] = useState(
+    new Date(Date.now() + 3 * 86400000),
+  );
+  const [showPicker, setShowPicker] = useState(null); // "pickup" | "return"
   const [location, setLocation] = useState("Shore Dr, Chicago 0062 Usa");
+
+  // Kur ndryshon lloji i qirase, cakto Return Date sipas tij
+  const selectRentalTime = (t) => {
+    setRentalTime(t);
+    const rd = new Date(pickupDate);
+    if (t === "Hour") rd.setHours(rd.getHours() + 3);
+    else if (t === "Day") rd.setDate(rd.getDate() + 1);
+    else if (t === "Weekly") rd.setDate(rd.getDate() + 7);
+    else if (t === "Monthly") rd.setDate(rd.getDate() + 30);
+    setReturnDate(rd);
+  };
+
+  const onPickDate = (event, selected) => {
+    const which = showPicker;
+    setShowPicker(null);
+    if (!selected) return;
+    if (which === "pickup") {
+      setPickupDate(selected);
+      if (returnDate <= selected) {
+        const rd = new Date(selected);
+        rd.setDate(rd.getDate() + 1);
+        setReturnDate(rd);
+      }
+    } else if (which === "return") {
+      if (selected > pickupDate) setReturnDate(selected);
+    }
+  };
 
   // ── Cmimi real i vetures ──
   const perDay = Number(car.price_per_day ?? car.daily_price ?? car.price ?? 0);
   const perHour = Number(car.price_per_hour ?? (perDay ? perDay / 24 : 0));
 
-  // Data: sot → sot + 3 dite
-  const pickupDate = new Date();
-  const returnDate = new Date(Date.now() + 3 * 86400000);
-  const days = Math.max(1, Math.round((returnDate - pickupDate) / 86400000));
+  // Kohëzgjatja nga datat e zgjedhura
+  const msDiff = Math.max(0, returnDate - pickupDate);
+  const days = Math.max(1, Math.round(msDiff / 86400000));
+  const hours = Math.max(1, Math.round(msDiff / 3600000));
 
   // Totali sipas llojit te qirase
   let base;
   let durationHours;
   if (rentalTime === "Hour") {
-    base = perHour * 24 * days;
-    durationHours = days * 24;
-  } else if (rentalTime === "Weekly") {
-    base = perDay * 7;
-    durationHours = 168;
-  } else if (rentalTime === "Monthly") {
-    base = perDay * 30;
-    durationHours = 720;
+    base = perHour * hours;
+    durationHours = hours;
   } else {
-    base = perDay * days; // Day
+    base = perDay * days;
     durationHours = days * 24;
   }
 
@@ -293,7 +320,7 @@ const BookingScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   key={t}
                   style={[styles.timeChip, active && styles.timeChipActive]}
-                  onPress={() => setRentalTime(t)}
+                  onPress={() => selectRentalTime(t)}
                 >
                   <Text
                     style={[styles.timeText, active && styles.timeTextActive]}
@@ -306,22 +333,37 @@ const BookingScreen = ({ navigation, route }) => {
           </View>
 
           <View style={styles.dateCard}>
-            <View style={styles.dateCol}>
+            <TouchableOpacity
+              style={styles.dateCol}
+              onPress={() => setShowPicker("pickup")}
+            >
               <Text style={styles.dateLabel}>Pick up Date</Text>
               <View style={styles.dateValue}>
                 <CalendarSm color="#9CA3AF" />
                 <Text style={styles.dateText}>{fmtDate(pickupDate)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
             <View style={styles.dateDivider} />
-            <View style={styles.dateCol}>
+            <TouchableOpacity
+              style={styles.dateCol}
+              onPress={() => setShowPicker("return")}
+            >
               <Text style={styles.dateLabel}>Return Date</Text>
               <View style={styles.dateValue}>
                 <CalendarSm color="#9CA3AF" />
                 <Text style={styles.dateText}>{fmtDate(returnDate)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
+
+          {showPicker && (
+            <DateTimePicker
+              value={showPicker === "pickup" ? pickupDate : returnDate}
+              mode={rentalTime === "Hour" ? "datetime" : "date"}
+              minimumDate={showPicker === "return" ? pickupDate : new Date()}
+              onChange={onPickDate}
+            />
+          )}
         </View>
 
         {/* Car location */}
@@ -344,7 +386,7 @@ const BookingScreen = ({ navigation, route }) => {
           <View style={styles.priceCard}>
             <View style={styles.priceRow}>
               <Text style={styles.priceKey}>
-                Baza ({rentalTime === "Day" ? `${days} ditë` : rentalTime})
+                Baza ({rentalTime === "Hour" ? `${hours} orë` : `${days} ditë`})
               </Text>
               <Text style={styles.priceVal}>${base}</Text>
             </View>

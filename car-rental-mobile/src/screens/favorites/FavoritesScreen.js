@@ -131,7 +131,7 @@ const FavoritesScreen = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.browseBtn}
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
           >
             <Text style={styles.browseText}>Browse cars</Text>
           </TouchableOpacity>
